@@ -38,6 +38,7 @@ Các thư viện chính trong `requirements.txt`:
 - `psycopg[binary]`: kết nối PostgreSQL/Supabase.
 - `requests`: gọi Supabase Storage/REST API.
 - `google-generativeai`: gọi Gemini để OCR ảnh và xử lý dòng khó.
+- `openai`: gọi OpenAI Responses API cho các dòng text khó nếu chọn `LLM_PROVIDER=openai`.
 - `python-dotenv`: đọc biến môi trường trong `.env`.
 - `pydantic`: validate/chuẩn hóa dữ liệu.
 - `pytest`: chạy test tự động.
@@ -69,8 +70,13 @@ Tạo file `.env` từ `.env.example`.
 Ví dụ cấu hình production:
 
 ```env
+LLM_PROVIDER=gemini
+
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
+
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
 
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
@@ -91,6 +97,12 @@ Lưu ý bảo mật:
 - Không đưa `SUPABASE_SERVICE_ROLE_KEY` lên frontend/public repo.
 - `SUPABASE_URL` nên là domain gốc, ví dụ `https://xxx.supabase.co`, không cần thêm `/rest/v1`.
 - Nếu mật khẩu database có ký tự đặc biệt, cần URL-encode trong `DATABASE_URL`.
+
+Chọn provider LLM:
+
+- `LLM_PROVIDER=gemini`: dùng Gemini cho LLM text và OCR ảnh.
+- `LLM_PROVIDER=openai`: dùng OpenAI cho LLM text khi import báo giá/chuẩn hóa dòng khó.
+- OCR ảnh hiện vẫn dùng Gemini OCR trong `parser_engine.py`; nếu muốn OCR ảnh bằng OpenAI cần bổ sung luồng vision riêng.
 
 ## 6. Cài đặt và chạy local
 

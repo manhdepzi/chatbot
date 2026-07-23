@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from io import BytesIO
 from copy import copy
 from typing import Any, Dict, List, Optional
@@ -61,6 +62,49 @@ SUMMARY_COLUMNS = [
     ("vat", "VAT"),
     ("grand_total", "Tổng cộng"),
 ]
+
+
+def _product_only_export() -> bool:
+    return os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _export_money(value: Any) -> Any:
+    return None if _product_only_export() else value
+
+
+PRODUCT_EXPORT_COLUMNS = [
+    ("item_no", "STT"),
+    ("mark", "Mark"),
+    ("category", "Nhóm sản phẩm"),
+    ("description", "Tên vật tư"),
+    ("width", "Rộng"),
+    ("height", "Cao"),
+    ("diameter", "Đường kính"),
+    ("length", "Dài"),
+    ("thickness", "Độ dày"),
+    ("material", "Vật liệu"),
+    ("quantity", "Khối lượng"),
+    ("unit", "Đơn vị"),
+    ("calculated_area", "Diện tích m2"),
+    ("quote_code", "Mã công thức"),
+    ("quote_material_spec", "Vật liệu chế tạo"),
+    ("quote_brand", "Xuất xứ"),
+    ("quote_note", "Ghi chú"),
+    ("warnings", "Cảnh báo"),
+]
+
+PRODUCT_SUMMARY_COLUMNS = [
+    ("total_area", "Tổng diện tích"),
+    ("item_count", "Số dòng sản phẩm"),
+]
+
+
+def _export_columns() -> List[tuple[str, str]]:
+    return PRODUCT_EXPORT_COLUMNS if _product_only_export() else EXPORT_COLUMNS
+
+
+def _summary_columns() -> List[tuple[str, str]]:
+    return PRODUCT_SUMMARY_COLUMNS if _product_only_export() else SUMMARY_COLUMNS
 
 
 def build_quotation_workbook(
@@ -156,12 +200,12 @@ def _try_write_kaiyo_quote_sheet(
         row = data_start + idx
         qty = float(item.get("quote_output_quantity") or item.get("quantity") or 0)
         unit = item.get("quote_output_unit") or item.get("unit")
-        unit_price = float(
+        unit_price = 0.0 if _product_only_export() else float(
             item.get("quote_output_unit_price")
             or item.get("quote_unit_price")
             or (float(item.get("grand_total") or 0) / qty if qty else 0)
         )
-        total = float(item.get("subtotal") or item.get("grand_total") or qty * unit_price)
+        total = 0.0 if _product_only_export() else float(item.get("subtotal") or item.get("grand_total") or qty * unit_price)
 
         values = {
             "A": item.get("item_no") or idx + 1,
@@ -170,8 +214,8 @@ def _try_write_kaiyo_quote_sheet(
             "D": item.get("quote_brand") or "Kaiyo Viet Nam",
             "E": unit,
             "F": qty,
-            "G": unit_price,
-            "H": total,
+            "G": _export_money(unit_price),
+            "H": _export_money(total),
             "I": item.get("quote_note") or item.get("remark"),
             "K": item.get("description"),
             "L": item.get("quote_code") or _infer_template_quote_code(item),
@@ -179,32 +223,34 @@ def _try_write_kaiyo_quote_sheet(
             "N": item.get("formula_height") or item.get("height") or item.get("diameter"),
             "O": item.get("formula_width2") or item.get("width2"),
             "P": item.get("formula_height2") or item.get("height2"),
+            "Q": item.get("formula_width3") or item.get("width3"),
+            "R": item.get("formula_height3") or item.get("height3"),
             "S": item.get("formula_length") or item.get("length"),
             "T": item.get("formula_radius") or item.get("radius") or item.get("diameter"),
             "U": item.get("formula_angle") or item.get("angle"),
             "V": item.get("formula_area") or _area_per_item(item, qty),
-            "W": item.get("formula_unit_price") or item.get("quote_unit_price"),
-            "X": item.get("area_multiplier"),
+            "W": _export_money(item.get("formula_unit_price") or item.get("quote_unit_price")),
+            "X": _export_money(item.get("area_multiplier")),
             "Y": item.get("accessory_area") or item.get("flange_price"),
-            "Z": item.get("accessory_unit_price") or item.get("accessory_cost"),
-            "AA": item.get("installation_cost"),
+            "Z": _export_money(item.get("accessory_unit_price") or item.get("accessory_cost")),
+            "AA": _export_money(item.get("installation_cost")),
         }
         for col, value in values.items():
             _safe_set_cell(sheet, f"{col}{row}", value)
 
     total_row = data_start + len(items)
     sheet[f"B{total_row}"] = "TỔNG CỘNG"
-    sheet[f"H{total_row}"] = summary.get("items_subtotal", summary.get("subtotal", 0))
+    sheet[f"H{total_row}"] = _export_money(summary.get("items_subtotal", summary.get("subtotal", 0)))
     sheet[f"G{total_row}"] = ""
     sheet[f"F{total_row}"] = ""
 
     vat_row = total_row + 1
     sheet[f"B{vat_row}"] = "VAT"
-    sheet[f"H{vat_row}"] = summary.get("vat", 0)
+    sheet[f"H{vat_row}"] = _export_money(summary.get("vat", 0))
 
     grand_row = total_row + 2
     sheet[f"B{grand_row}"] = "TỔNG THANH TOÁN"
-    sheet[f"H{grand_row}"] = summary.get("grand_total", 0)
+    sheet[f"H{grand_row}"] = _export_money(summary.get("grand_total", 0))
 
     sheet.freeze_panes = f"A{data_start}"
     return True
@@ -244,39 +290,41 @@ def _try_update_existing_kaiyo_quote(
 def _write_kaiyo_item_row(sheet, row: int, item: Dict[str, Any], fallback_item_no: int) -> None:
     qty = float(item.get("quote_output_quantity") or item.get("quantity") or 0)
     unit = item.get("quote_output_unit") or item.get("unit")
-    unit_price = float(
+    unit_price = 0.0 if _product_only_export() else float(
         item.get("quote_output_unit_price")
         or item.get("quote_unit_price")
         or (float(item.get("grand_total") or 0) / qty if qty else 0)
     )
-    total = float(item.get("subtotal") or item.get("grand_total") or qty * unit_price)
+    total = 0.0 if _product_only_export() else float(item.get("subtotal") or item.get("grand_total") or qty * unit_price)
     note = item.get("quote_note") or item.get("remark")
 
     values = {
         "A": item.get("item_no") or fallback_item_no,
         "B": item.get("description"),
-        "C": item.get("quote_material_spec") if total else None,
-        "D": item.get("quote_brand") if total else None,
+        "C": item.get("quote_material_spec") or item.get("material"),
+        "D": item.get("quote_brand") or "Kaiyo Viet Nam",
         "E": unit,
         "F": qty,
-        "G": unit_price if total else None,
-        "H": total,
-        "I": note if total else None,
+        "G": _export_money(unit_price if total else None),
+        "H": _export_money(total),
+        "I": note,
         "K": item.get("description"),
         "L": item.get("quote_code") or _infer_template_quote_code(item),
         "M": item.get("formula_width") or item.get("width") or item.get("diameter"),
         "N": item.get("formula_height") or item.get("height") or item.get("diameter"),
         "O": item.get("formula_width2") or item.get("width2"),
         "P": item.get("formula_height2") or item.get("height2"),
+        "Q": item.get("formula_width3") or item.get("width3"),
+        "R": item.get("formula_height3") or item.get("height3"),
         "S": item.get("formula_length") or item.get("length"),
         "T": item.get("formula_radius") or item.get("radius") or item.get("diameter"),
         "U": item.get("formula_angle") or item.get("angle"),
         "V": item.get("formula_area") or _area_per_item(item, float(item.get("quantity") or 0)),
-        "W": item.get("formula_unit_price") or item.get("quote_output_unit_price") or item.get("quote_unit_price"),
-        "X": item.get("area_multiplier"),
+        "W": _export_money(item.get("formula_unit_price") or item.get("quote_output_unit_price") or item.get("quote_unit_price")),
+        "X": _export_money(item.get("area_multiplier")),
         "Y": item.get("accessory_area") or item.get("flange_price"),
-        "Z": item.get("accessory_unit_price") or item.get("accessory_cost"),
-        "AA": item.get("installation_cost"),
+        "Z": _export_money(item.get("accessory_unit_price") or item.get("accessory_cost")),
+        "AA": _export_money(item.get("installation_cost")),
     }
     for col, value in values.items():
         _safe_set_cell(sheet, f"{col}{row}", value)
@@ -284,15 +332,15 @@ def _write_kaiyo_item_row(sheet, row: int, item: Dict[str, Any], fallback_item_n
 
 def _write_kaiyo_summary_rows(sheet, total_row: int, summary: Dict[str, float]) -> None:
     _safe_set_cell(sheet, f"B{total_row}", "Tổng cộng giá trước thuế")
-    _safe_set_cell(sheet, f"H{total_row}", summary.get("items_subtotal", summary.get("subtotal", 0)))
+    _safe_set_cell(sheet, f"H{total_row}", _export_money(summary.get("items_subtotal", summary.get("subtotal", 0))))
 
     vat_row = total_row + 1
     _safe_set_cell(sheet, f"B{vat_row}", "Thuế GTGT 10%")
-    _safe_set_cell(sheet, f"H{vat_row}", summary.get("vat", 0))
+    _safe_set_cell(sheet, f"H{vat_row}", _export_money(summary.get("vat", 0)))
 
     grand_row = total_row + 4 if _normalize(sheet[f"B{total_row + 4}"].value).startswith("tong cong") else total_row + 2
     _safe_set_cell(sheet, f"B{grand_row}", "Tổng cộng giá sau thuế")
-    _safe_set_cell(sheet, f"H{grand_row}", summary.get("grand_total", 0))
+    _safe_set_cell(sheet, f"H{grand_row}", _export_money(summary.get("grand_total", 0)))
 
 
 def _find_sheet(workbook: Workbook, name: str):
@@ -524,10 +572,10 @@ def _remove_sheet_if_exists(workbook: Workbook, title: str) -> None:
 def _fill_placeholders(workbook: Workbook, summary: Dict[str, float]) -> None:
     replacements = {
         "{TOTAL_AREA}": summary.get("total_area", 0.0),
-        "{SUBTOTAL}": summary.get("subtotal", 0.0),
-        "{PROFIT}": summary.get("profit", 0.0),
-        "{VAT}": summary.get("vat", 0.0),
-        "{GRAND_TOTAL}": summary.get("grand_total", 0.0),
+        "{SUBTOTAL}": _export_money(summary.get("subtotal", 0.0)),
+        "{PROFIT}": _export_money(summary.get("profit", 0.0)),
+        "{VAT}": _export_money(summary.get("vat", 0.0)),
+        "{GRAND_TOTAL}": _export_money(summary.get("grand_total", 0.0)),
     }
     for sheet in workbook.worksheets:
         for row in sheet.iter_rows():
@@ -537,6 +585,8 @@ def _fill_placeholders(workbook: Workbook, summary: Dict[str, float]) -> None:
 
 
 def _write_items_sheet(sheet, items: List[Dict[str, Any]], summary: Dict[str, float]) -> None:
+    export_columns = _export_columns()
+    summary_columns = _summary_columns()
     title_fill = PatternFill("solid", fgColor="1F4E78")
     header_fill = PatternFill("solid", fgColor="D9EAF7")
     title_font = Font(color="FFFFFF", bold=True, size=14)
@@ -545,22 +595,22 @@ def _write_items_sheet(sheet, items: List[Dict[str, Any]], summary: Dict[str, fl
     sheet["A1"] = "Báo giá HVAC AI"
     sheet["A1"].font = title_font
     sheet["A1"].fill = title_fill
-    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(EXPORT_COLUMNS))
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(export_columns))
 
     sheet["A3"] = "Tổng hợp"
     sheet["A3"].font = Font(bold=True)
-    for idx, (key, label) in enumerate(SUMMARY_COLUMNS, start=4):
+    for idx, (key, label) in enumerate(summary_columns, start=4):
         sheet.cell(idx, 1, label)
-        sheet.cell(idx, 2, summary.get(key, 0.0))
+        sheet.cell(idx, 2, len(items) if key == "item_count" else summary.get(key, 0.0))
 
-    header_row = len(SUMMARY_COLUMNS) + 6
-    for col_idx, (_, header) in enumerate(EXPORT_COLUMNS, start=1):
+    header_row = len(summary_columns) + 6
+    for col_idx, (_, header) in enumerate(export_columns, start=1):
         cell = sheet.cell(header_row, col_idx, header)
         cell.font = header_font
         cell.fill = header_fill
 
     for row_idx, item in enumerate(items, start=header_row + 1):
-        for col_idx, (key, _) in enumerate(EXPORT_COLUMNS, start=1):
+        for col_idx, (key, _) in enumerate(export_columns, start=1):
             value = item.get(key)
             if key == "warnings" and isinstance(value, list):
                 value = "; ".join(value)
@@ -568,7 +618,7 @@ def _write_items_sheet(sheet, items: List[Dict[str, Any]], summary: Dict[str, fl
 
     _autosize_columns(sheet, max_width=42)
     sheet.freeze_panes = sheet.cell(header_row + 1, 1)
-    sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(len(EXPORT_COLUMNS))}{max(header_row, header_row + len(items))}"
+    sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(len(export_columns))}{max(header_row, header_row + len(items))}"
 
 
 def _autosize_columns(sheet, max_width: int = 40) -> None:

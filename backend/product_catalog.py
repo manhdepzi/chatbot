@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 import unicodedata
 from typing import Any, Dict, List, Optional
 
 from backend.database import get_db_connection
 import backend.supabase_store as supabase_store
+
+_ALIAS_ROWS_CACHE: Dict[str, Any] = {"expires_at": 0.0, "rows": []}
 
 
 def normalize_text(value: Any) -> str:
@@ -302,7 +305,11 @@ def list_product_master() -> List[Dict[str, Any]]:
 
 def list_product_aliases(limit: int = 500) -> List[Dict[str, Any]]:
     if supabase_store.enabled():
-        return supabase_store.list_product_aliases(limit)
+        try:
+            return supabase_store.list_product_aliases(limit)
+        except Exception as exc:
+            if getattr(supabase_store, "strict_enabled", lambda: True)():
+                print(f"Supabase list_product_aliases unavailable, using local fallback: {exc}")
     conn = get_db_connection()
     ensure_product_catalog_schema(conn)
     rows = conn.execute(
@@ -324,21 +331,7 @@ def match_product(text: str) -> Optional[Dict[str, Any]]:
     normalized = normalize_text(text)
     if not normalized:
         return None
-    if supabase_store.enabled():
-        rows = supabase_store.product_alias_match_rows()
-    else:
-        conn = get_db_connection()
-        ensure_product_catalog_schema(conn)
-        rows = conn.execute(
-            """
-            SELECT pa.alias_text, pa.normalized_alias, pa.product_code, pa.confidence,
-                   pm.display_name_vi, pm.category, pm.pricing_method, pm.required_fields, pm.default_unit
-            FROM product_aliases pa
-            JOIN product_master pm ON pm.product_code = pa.product_code
-            WHERE pa.status = 'approved' AND pm.active = 1
-            """
-        ).fetchall()
-        conn.close()
+    rows = _product_alias_match_rows_cached()
 
     best: Optional[Dict[str, Any]] = None
     for row in rows:
@@ -354,6 +347,42 @@ def match_product(text: str) -> Optional[Dict[str, Any]]:
     if best:
         best["required_fields"] = _required_fields(best.get("required_fields"))
     return best
+
+
+def _product_alias_match_rows_cached(ttl_seconds: int = 300) -> List[Dict[str, Any]]:
+    now = time.time()
+    if _ALIAS_ROWS_CACHE["rows"] and now < float(_ALIAS_ROWS_CACHE["expires_at"] or 0):
+        return list(_ALIAS_ROWS_CACHE["rows"])
+
+    rows: List[Dict[str, Any]]
+    if supabase_store.enabled():
+        try:
+            rows = supabase_store.product_alias_match_rows()
+        except Exception as exc:
+            print(f"Supabase product_alias_match_rows unavailable, using local fallback: {exc}")
+            rows = _local_product_alias_match_rows()
+    else:
+        rows = _local_product_alias_match_rows()
+
+    _ALIAS_ROWS_CACHE["rows"] = [dict(row) for row in rows]
+    _ALIAS_ROWS_CACHE["expires_at"] = now + ttl_seconds
+    return list(_ALIAS_ROWS_CACHE["rows"])
+
+
+def _local_product_alias_match_rows() -> List[Dict[str, Any]]:
+    conn = get_db_connection()
+    ensure_product_catalog_schema(conn)
+    rows = conn.execute(
+        """
+        SELECT pa.alias_text, pa.normalized_alias, pa.product_code, pa.confidence,
+               pm.display_name_vi, pm.category, pm.pricing_method, pm.required_fields, pm.default_unit
+        FROM product_aliases pa
+        JOIN product_master pm ON pm.product_code = pa.product_code
+        WHERE pa.status = 'approved' AND pm.active = 1
+        """
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def line_signature(item: Dict[str, Any]) -> str:
@@ -414,7 +443,11 @@ def save_sales_product_answer(
 
 def list_sales_answers(limit: int = 200) -> List[Dict[str, Any]]:
     if supabase_store.enabled():
-        return supabase_store.list_sales_answers(limit)
+        try:
+            return supabase_store.list_sales_answers(limit)
+        except Exception as exc:
+            if getattr(supabase_store, "strict_enabled", lambda: True)():
+                print(f"Supabase list_sales_answers unavailable, using local fallback: {exc}")
     conn = get_db_connection()
     ensure_product_catalog_schema(conn)
     rows = conn.execute(

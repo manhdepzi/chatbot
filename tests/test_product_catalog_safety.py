@@ -1,3 +1,8 @@
+import os
+
+os.environ["USE_SUPABASE_DB"] = "0"
+os.environ["PRODUCT_ONLY_MODE"] = "0"
+
 from backend.pricing_engine import calculate_item_cost
 from backend.product_catalog import match_product
 

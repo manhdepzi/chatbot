@@ -24,6 +24,8 @@ except Exception:  # pragma: no cover - optional runtime dependency
 
 load_dotenv()
 
+_SEED_DONE = False
+
 
 DEFAULT_COMPANY_SETTINGS = [
     ("company_name", "Kaiyo Vietnam", "Tên công ty dùng trong quy trình báo giá"),
@@ -237,15 +239,30 @@ def strict_enabled() -> bool:
 def connect():
     if not enabled():
         raise RuntimeError("Supabase/PostgreSQL is not configured.")
-    conn = psycopg.connect(os.getenv("DATABASE_URL"), row_factory=dict_row, prepare_threshold=None)
+    conn = psycopg.connect(
+        os.getenv("DATABASE_URL"),
+        row_factory=dict_row,
+        prepare_threshold=None,
+        connect_timeout=int(os.getenv("SUPABASE_CONNECT_TIMEOUT", "10") or 10),
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=3,
+    )
     try:
         yield conn
         conn.commit()
     except Exception:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def company_id(conn) -> str:
@@ -303,7 +320,10 @@ def normalize_unit(unit: Any) -> str:
 
 
 def ensure_seed_data() -> None:
+    global _SEED_DONE
     if not enabled():
+        return
+    if _SEED_DONE:
         return
     with connect() as conn:
         _ensure_runtime_tables(conn)
@@ -469,6 +489,7 @@ def ensure_seed_data() -> None:
                         """,
                         (cid, row["id"], product_code, alias_text, normalize_text(alias_text), language, confidence),
                     )
+    _SEED_DONE = True
 
 
 def _ensure_runtime_tables(conn) -> None:
@@ -1495,6 +1516,8 @@ def _memory_note_with_formula(item: Dict[str, Any]) -> str:
             "formula_height",
             "formula_width2",
             "formula_height2",
+            "formula_width3",
+            "formula_height3",
             "formula_length",
             "formula_radius",
             "formula_angle",

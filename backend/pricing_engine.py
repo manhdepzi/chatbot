@@ -1,5 +1,6 @@
 ﻿import math
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from backend.database import get_db_connection
 from backend.parser_engine import normalize_text
@@ -18,6 +19,10 @@ from backend.rag_engine import best_quote_memory_candidate
 def _supabase_strict_enabled() -> bool:
     return getattr(supabase_store, "strict_enabled", lambda: True)()
 
+
+def product_only_mode() -> bool:
+    return os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+
 DAMPER_CATEGORIES = {"FIRE_DAMPER", "MOTORIZED_DAMPER", "VOLUME_CONTROL_DAMPER", "BACK_DRAFT_DAMPER"}
 DEFAULT_DAMPER_LENGTH_MM = {
     "FIRE_DAMPER": 250.0,
@@ -34,6 +39,172 @@ BACK_DRAFT_FIREPROOF_ACCESSORY_RATE = 300_000.0
 OVAL_GRILLE_OBD_FRAME_RATE = 50_000.0
 OVAL_GRILLE_OBD_BLADE_RATE = 13_000.0
 OVAL_GRILLE_OBD_FACTOR = 1.7
+STRAIGHT_DUCT_CATEGORIES = {"SUPPLY_DUCT", "RETURN_DUCT", "FRESH_AIR_DUCT", "EXHAUST_AIR_DUCT", "SMOKE_DUCT"}
+DUCT_FITTING_CATEGORIES = STRAIGHT_DUCT_CATEGORIES | {
+    "ELBOW",
+    "TEE",
+    "REDUCER",
+    "TRANSITION",
+    "CROSS",
+    "OFFSET",
+    "PLENUM_BOX",
+}
+
+
+def _num(value: Any, default: float = 0.0) -> float:
+    try:
+        if value in (None, ""):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _is_meter_unit(unit: Any) -> bool:
+    return normalize_text(unit) in {"m", "met", "meter", "met dai"}
+
+
+def _kaiyo_quote_code(item: Dict[str, Any], quote_code: Any = "") -> str:
+    code = normalize_text(quote_code or item.get("quote_code") or "")
+    if code:
+        return code
+    category = item.get("category")
+    if category in STRAIGHT_DUCT_CATEGORIES:
+        return "t"
+    if category == "ELBOW":
+        return "cv"
+    if category == "REDUCER":
+        return "g"
+    if category == "TRANSITION":
+        return "vt"
+    if category == "TEE":
+        return "tt"
+    if category == "PLENUM_BOX":
+        return "tb"
+    return ""
+
+
+def _kaiyo_default_length(item: Dict[str, Any], code: str) -> float:
+    if code in {"t", "ta"} and _is_meter_unit(item.get("unit")):
+        return 1000.0
+    if code in {"t", "ta"}:
+        return _num(item.get("length"), 1200.0)
+    if code in {"g", "vt"}:
+        return _num(item.get("length"), 500.0)
+    if code == "n":
+        return _num(item.get("length"), 200.0)
+    if code == "tb":
+        return _num(item.get("length"), 200.0)
+    return _num(item.get("length"), 0.0)
+
+
+def _kaiyo_formula_context(item: Dict[str, Any], quote_code: Any = "", default_multiplier: Any = 1.0) -> Optional[Dict[str, Any]]:
+    """
+    Mirror the Kaiyo Excel helper columns:
+    L=code, M=W1, N=H1, O=W2, P=H2, Q=W3, R=H3, S=L/H, T=R/D, U=E.
+    """
+    code = _kaiyo_quote_code(item, quote_code)
+    if not code:
+        return None
+    category = item.get("category")
+    supported = code in {"t", "ta", "f", "m", "d", "tb", "g", "n", "tt"} or code.startswith(("c", "vt"))
+    if category not in DUCT_FITTING_CATEGORIES and not supported:
+        return None
+
+    w1 = _num(item.get("formula_width") or item.get("width") or item.get("diameter"))
+    h1 = _num(item.get("formula_height") or item.get("height") or item.get("diameter"))
+    w2 = _num(item.get("formula_width2") or item.get("width2"))
+    h2 = _num(item.get("formula_height2") or item.get("height2"))
+    w3 = _num(item.get("formula_width3") or item.get("width3"))
+    h3 = _num(item.get("formula_height3") or item.get("height3"))
+    length = _num(item.get("formula_length"), 0.0) or _kaiyo_default_length(item, code)
+    radius = _num(item.get("formula_radius") or item.get("radius"))
+    angle = _num(item.get("formula_angle") or item.get("angle"))
+    edge = _num(item.get("formula_edge") or item.get("edge"))
+
+    if w1 <= 0 or h1 <= 0:
+        return None
+
+    area = 0.0
+    note = ""
+    if code in {"t", "ta"}:
+        length = length or (1000.0 if _is_meter_unit(item.get("unit")) else 1200.0)
+        area = (w1 + h1) * 2.0 / 1000.0 * length / 1000.0
+        note = f"Kaiyo mã {code}: L/H={length:g}mm"
+    elif code in {"f", "m"}:
+        area = (w1 * h1) / 1_000_000.0
+        note = f"Kaiyo mã {code}: diện tích mặt"
+    elif code == "d":
+        if length <= 0:
+            return None
+        area = (w1 + h1 + edge / 2.0) * 2.0 * length / 1_000_000.0
+        note = "Kaiyo mã d"
+    elif code == "tb":
+        length = length or 200.0
+        area = ((w1 + h1) * 2.0 * length + w1 * h1) / 1_000_000.0
+        note = f"Kaiyo mã tb: L/H={length:g}mm"
+    elif code in {"g", "n"}:
+        w2 = w2 or w1
+        h2 = h2 or h1
+        length = length or (500.0 if code == "g" else 200.0)
+        area = (
+            (w1 + w2) * math.sqrt(length**2 + ((h1 - h2) / 2.0) ** 2)
+            + (h1 + h2) * math.sqrt(length**2 + ((w1 - w2) / 2.0) ** 2)
+        ) / 1_000_000.0
+        note = f"Kaiyo mã {code}: W2/H2={w2:g}x{h2:g}, L/H={length:g}mm"
+    elif code.startswith("c"):
+        radius = radius or w1 / 2.0
+        angle = angle or 90.0
+        area = (
+            2.0
+            * (
+                math.pi * ((w1 + radius) ** 2 - radius**2)
+                + h1 * (math.pi * (w1 + radius) + math.pi * radius)
+            )
+            * (angle / 360.0)
+        ) / 1_000_000.0
+        note = f"Kaiyo mã {code}: R/D={radius:g}, E={angle:g}°"
+    elif code.startswith("vt"):
+        w2 = w2 or w1
+        h2 = h2 or h1
+        length = length or 500.0
+        radius = radius or _num(item.get("diameter"))
+        transition_area = (
+            (w1 + w2) * math.sqrt(length**2 + ((h1 - h2) / 2.0) ** 2)
+            + (h1 + h2) * math.sqrt(length**2 + ((w1 - w2) / 2.0) ** 2)
+        )
+        round_extra = ((radius + 200.0) ** 2 - (radius / 2.0) ** 2 * 3.14) if radius > 0 else 0.0
+        area = (transition_area + round_extra) / 1_000_000.0
+        note = f"Kaiyo mã {code}: W2/H2={w2:g}x{h2:g}, L/H={length:g}mm"
+    elif code == "tt":
+        if not all(value > 0 for value in [length, w2, h2, w3, h3]):
+            return None
+        area = (
+            2 * (w1 + h1) * (length - 1.5 * w2)
+            + (math.pi * (3 * w2 + 2 / 3 * w1) * (w2 + 2 / 3 * w1 + h2 + h1) - (h2 + h1) * (math.pi * 1.5 * w2)) / 8
+            + (math.pi * (3 * w3 + 2 / 3 * w1) * (w3 + 2 / 3 * w1 + h3 + h1) - (h3 + h1) * (math.pi * 1.5 * w3)) / 8
+        ) / 1_000_000.0
+        note = "Kaiyo mã tt"
+    else:
+        return None
+
+    if area <= 0:
+        return None
+    return {
+        "quote_code": code,
+        "area_per_item": round(area, 4),
+        "formula_width": w1,
+        "formula_height": h1,
+        "formula_width2": w2 or None,
+        "formula_height2": h2 or None,
+        "formula_width3": w3 or None,
+        "formula_height3": h3 or None,
+        "formula_length": length or None,
+        "formula_radius": radius or None,
+        "formula_angle": angle or None,
+        "area_multiplier": _kaiyo_quote_area_multiplier(item, code, default_multiplier),
+        "quote_note": note,
+    }
 
 def calculate_duct_area(item: Dict[str, Any]) -> float:
     """
@@ -414,6 +585,68 @@ def get_product_pricing_rules() -> Dict[str, Dict[str, Any]]:
     conn.close()
     return {row["category"]: dict(row) for row in rows}
 
+
+def _product_only_item(
+    item: Dict[str, Any],
+    priced_item: Dict[str, Any],
+    product_rule: Dict[str, Any],
+    warnings: List[str],
+    area_per_item: float,
+    total_area: float,
+    quote_code: str,
+    unit_mode: str,
+    kaiyo_formula: Optional[Dict[str, Any]],
+    price_source_status: str,
+) -> Dict[str, Any]:
+    updated_item = dict(item)
+    if priced_item.get("length") != item.get("length"):
+        updated_item["length"] = priced_item.get("length")
+    updated_item.update({
+        "calculated_area": round(total_area, 3),
+        "material_cost": 0.0,
+        "labor_cost": 0.0,
+        "accessory_cost": 0.0,
+        "installation_cost": 0.0,
+        "painting_cost": 0.0,
+        "insulation_cost": 0.0,
+        "waste_cost": 0.0,
+        "subtotal": 0.0,
+        "profit": 0.0,
+        "vat": 0.0,
+        "grand_total": 0.0,
+        "quote_code": quote_code,
+        "quote_material_spec": product_rule.get("material_spec") or _default_material_spec(
+            item.get("material", "GI"),
+            float(item.get("thickness") or 0),
+            item.get("pressure_class"),
+        ),
+        "quote_brand": product_rule.get("brand", "Kaiyo Viet Nam"),
+        "quote_note": (kaiyo_formula or {}).get("quote_note") or product_rule.get("note", ""),
+        "quote_unit_price": None,
+        "quote_output_unit_price": None,
+        "pricing_mode": unit_mode,
+        "area_multiplier": None,
+        "formula_width": (kaiyo_formula or {}).get("formula_width") or priced_item.get("width") or priced_item.get("diameter"),
+        "formula_height": (kaiyo_formula or {}).get("formula_height") or priced_item.get("height") or priced_item.get("diameter"),
+        "formula_width2": (kaiyo_formula or {}).get("formula_width2") or item.get("formula_width2") or item.get("width2"),
+        "formula_height2": (kaiyo_formula or {}).get("formula_height2") or item.get("formula_height2") or item.get("height2"),
+        "formula_width3": (kaiyo_formula or {}).get("formula_width3") or item.get("formula_width3") or item.get("width3"),
+        "formula_height3": (kaiyo_formula or {}).get("formula_height3") or item.get("formula_height3") or item.get("height3"),
+        "formula_length": (kaiyo_formula or {}).get("formula_length") or priced_item.get("length"),
+        "formula_radius": (kaiyo_formula or {}).get("formula_radius") or item.get("formula_radius") or item.get("radius"),
+        "formula_angle": (kaiyo_formula or {}).get("formula_angle") or item.get("formula_angle") or item.get("angle"),
+        "formula_area": (kaiyo_formula or {}).get("area_per_item") or area_per_item,
+        "formula_unit_price": None,
+        "accessory_area": None,
+        "accessory_unit_price": None,
+        "price_source_status": "product_only" if price_source_status == "exact" else price_source_status,
+        "pricing_confidence": "product_only",
+        "can_auto_quote": price_source_status == "exact" and not warnings,
+        "warnings": warnings,
+    })
+    return updated_item
+
+
 def calculate_item_cost(
     item: Dict[str, Any],
     coeffs: Dict[str, Any],
@@ -459,13 +692,13 @@ def calculate_item_cost(
         if not item.get("width") or not item.get("height"):
             if not item.get("diameter"):
                 warnings.append("Thiếu kích thước rộng/cao hoặc đường kính.")
-    if not item.get("thickness") or item.get("thickness") <= 0:
+    if not product_only_mode() and (not item.get("thickness") or item.get("thickness") <= 0):
         warnings.append("Thiếu hoặc sai độ dày vật liệu.")
 
     if item.get("category") == "UNKNOWN" and not product_rule:
         qty = item.get("quantity", 0.0)
         updated_item = dict(item)
-        warnings.append("Chưa có quy tắc nhận diện/đơn giá cho dòng này. Cần học từ báo giá đã làm hoặc nhập đơn giá.")
+        warnings.append("Chưa có quy tắc nhận diện sản phẩm cho dòng này. Cần bổ sung danh mục/từ khóa trước khi phát hành.")
         updated_item.update({
             "calculated_area": 0.0,
             "material_cost": 0.0,
@@ -482,16 +715,40 @@ def calculate_item_cost(
             "quote_code": "",
             "quote_material_spec": "",
             "quote_brand": "",
-            "quote_note": "Cần bổ sung quy tắc/đơn giá trước khi phát hành.",
-            "quote_unit_price": 0.0,
-            "pricing_mode": "needs_price",
-            "area_multiplier": 0.0,
+            "quote_note": "Cần bổ sung quy tắc nhận diện sản phẩm trước khi phát hành.",
+            "quote_unit_price": None,
+            "pricing_mode": "needs_product_rule",
+            "area_multiplier": None,
             "price_source_status": "unknown_product",
             "pricing_confidence": "blocked",
             "can_auto_quote": False,
             "warnings": warnings,
         })
         return updated_item
+
+    unit_mode = product_rule.get("unit_mode", "area")
+    quote_code = product_rule.get("quote_code", "")
+    area_multiplier = _kaiyo_quote_area_multiplier(priced_item, quote_code, product_rule.get("area_multiplier") or 1.0)
+    kaiyo_formula = _kaiyo_formula_context(priced_item, quote_code, product_rule.get("area_multiplier") or 1.0)
+    if kaiyo_formula:
+        quote_code = kaiyo_formula["quote_code"]
+        area_per_item = float(kaiyo_formula["area_per_item"])
+        total_area = area_per_item * qty
+        area_multiplier = float(kaiyo_formula["area_multiplier"])
+
+    if product_only_mode():
+        return _product_only_item(
+            item,
+            priced_item,
+            product_rule,
+            warnings,
+            area_per_item,
+            total_area,
+            quote_code,
+            unit_mode,
+            kaiyo_formula,
+            price_source_status,
+        )
 
     if item.get("product_pricing_method") == "manual_or_price_list":
         updated_item = dict(item)
@@ -543,9 +800,6 @@ def calculate_item_cost(
             warnings.append(f"Chưa có quy tắc đơn giá cho vật liệu {material}.")
             price_source_status = "missing_material_price"
 
-    unit_mode = product_rule.get("unit_mode", "area")
-    quote_code = product_rule.get("quote_code", "")
-    area_multiplier = _kaiyo_quote_area_multiplier(priced_item, quote_code, product_rule.get("area_multiplier") or 1.0)
     base_unit_price = float(product_rule.get("base_unit_price") or 0.0)
     if item.get("product_pricing_method") == "composite_rule" and not product_rule.get("formula_json"):
         warnings.append("Sản phẩm ghép đã nhận diện được nhưng chưa có rule công thức chi tiết được duyệt; cần QS xác nhận hoặc dùng báo giá đã học.")
@@ -556,10 +810,21 @@ def calculate_item_cost(
     mfd_motor_cost = 0.0
     special_formula_width2 = item.get("formula_width2")
     special_formula_height2 = item.get("formula_height2")
+    special_formula_length = item.get("formula_length")
+    special_formula_radius = item.get("formula_radius")
+    special_formula_angle = item.get("formula_angle")
     special_formula_area = item.get("formula_area")
     special_accessory_area = item.get("accessory_area")
     special_accessory_unit_price = item.get("accessory_unit_price")
     special_note = product_rule.get("note", "")
+    if kaiyo_formula:
+        special_formula_width2 = kaiyo_formula.get("formula_width2")
+        special_formula_height2 = kaiyo_formula.get("formula_height2")
+        special_formula_length = kaiyo_formula.get("formula_length")
+        special_formula_radius = kaiyo_formula.get("formula_radius")
+        special_formula_angle = kaiyo_formula.get("formula_angle")
+        special_formula_area = area_per_item
+        special_note = kaiyo_formula.get("quote_note") or special_note
     if item.get("category") == "MOTORIZED_DAMPER":
         mfd_sheet_rate = base_unit_price if base_unit_price and abs(base_unit_price - 3_500_000.0) > 1 else MFD_DEFAULT_SHEET_RATE
         mfd_motor_cost = _mfd_motor_cost(priced_item)
@@ -712,13 +977,17 @@ def calculate_item_cost(
         "quote_unit_price": round(subtotal / qty, 2) if qty else round(subtotal, 2),
         "pricing_mode": unit_mode,
         "area_multiplier": area_multiplier,
-        "formula_width": priced_item.get("width"),
-        "formula_height": priced_item.get("height"),
+        "formula_width": kaiyo_formula.get("formula_width") if kaiyo_formula else priced_item.get("width"),
+        "formula_height": kaiyo_formula.get("formula_height") if kaiyo_formula else priced_item.get("height"),
         "formula_width2": special_formula_width2,
         "formula_height2": special_formula_height2,
-        "formula_length": priced_item.get("length") if item.get("category") in DAMPER_CATEGORIES else item.get("formula_length"),
+        "formula_width3": kaiyo_formula.get("formula_width3") if kaiyo_formula else item.get("formula_width3"),
+        "formula_height3": kaiyo_formula.get("formula_height3") if kaiyo_formula else item.get("formula_height3"),
+        "formula_length": priced_item.get("length") if item.get("category") in DAMPER_CATEGORIES else special_formula_length,
+        "formula_radius": special_formula_radius,
+        "formula_angle": special_formula_angle,
         "formula_area": special_formula_area if special_formula_area is not None else (area_per_item if item.get("category") in DAMPER_CATEGORIES else item.get("formula_area")),
-        "formula_unit_price": unit_price if unit_mode in {"mfd_kaiyo_l250", "fd_kaiyo_l250", "prd_l200", "backdraft_fireproof_l200", "oval_grille_obd"} else (mfd_sheet_rate or item.get("formula_unit_price")),
+        "formula_unit_price": unit_price if kaiyo_formula or unit_mode in {"mfd_kaiyo_l250", "fd_kaiyo_l250", "prd_l200", "backdraft_fireproof_l200", "oval_grille_obd"} else (mfd_sheet_rate or item.get("formula_unit_price")),
         "accessory_area": special_accessory_area,
         "accessory_unit_price": special_accessory_unit_price if special_accessory_unit_price is not None else (mfd_motor_cost or item.get("accessory_unit_price")),
         "price_source_status": price_source_status,
@@ -801,6 +1070,8 @@ def _apply_quote_memory_price(item: Dict[str, Any], memory: Dict[str, Any]) -> D
         "formula_height": memory.get("formula_height") or item.get("height"),
         "formula_width2": memory.get("formula_width2") or item.get("width2"),
         "formula_height2": memory.get("formula_height2") or item.get("height2"),
+        "formula_width3": memory.get("formula_width3") or item.get("width3"),
+        "formula_height3": memory.get("formula_height3") or item.get("height3"),
         "formula_length": memory.get("formula_length") or item.get("length"),
         "formula_radius": memory.get("formula_radius") or item.get("radius"),
         "formula_angle": memory.get("formula_angle") or item.get("angle"),
@@ -1012,8 +1283,8 @@ def run_project_pricing(
     Runs the pricing calculations for a whole list of parsed items.
     Returns: (calculated_items, summary_totals, global_warnings)
     """
-    coeffs = get_coefficient_rules()
-    pricing = get_pricing_rules()
+    coeffs = {} if product_only_mode() else get_coefficient_rules()
+    pricing = {} if product_only_mode() else get_pricing_rules()
     product_rules = get_product_pricing_rules()
     if price_overrides:
         pricing.update(price_overrides)
@@ -1026,9 +1297,14 @@ def run_project_pricing(
 
     calculated_items = []
     global_warnings = []
-    quote_memory = quote_memory_lookup(items, source_file=quote_memory_source_file)
-    quote_memory_rows = quote_memory.get("__rows__", [])
-    rag_memory_rows = quote_memory_candidate_rows(source_file=quote_memory_source_file) if items else []
+    if product_only_mode():
+        quote_memory = {}
+        quote_memory_rows = []
+        rag_memory_rows = []
+    else:
+        quote_memory = quote_memory_lookup(items, source_file=quote_memory_source_file)
+        quote_memory_rows = quote_memory.get("__rows__", [])
+        rag_memory_rows = quote_memory_candidate_rows(source_file=quote_memory_source_file) if items else []
 
     # Aggregators
     total_area = 0.0
@@ -1058,30 +1334,32 @@ def run_project_pricing(
                 marks.add(m)
 
         calc_item = calculate_item_cost(item, coeffs, pricing, product_rules)
-        memory = _pop_sequential_quote_memory(item, quote_memory)
-        if not memory:
-            memory = (
-                quote_memory.get(quote_memory_signature(item))
-                or quote_memory.get(quote_memory_item_description_lookup_key(item))
-            )
-        if memory and memory.get("ambiguous"):
-            memory = None
-        if not memory:
-            memory = _composite_quote_memory_price(item, quote_memory_rows)
-        if not memory:
-            rag_threshold = float(os.getenv("RAG_AUTO_APPLY_THRESHOLD", "0.92") or 0.92)
-            rag_candidate = best_quote_memory_candidate(item, rag_memory_rows, min_apply_score=rag_threshold)
-            if rag_candidate and rag_candidate.get("rag_auto_apply"):
-                memory = rag_candidate
-                memory["rag_source"] = True
-            elif rag_candidate and float(rag_candidate.get("rag_similarity_score") or 0) >= 0.72:
-                warnings = list(calc_item.get("warnings") or [])
-                warnings.append(
-                    "RAG tìm thấy báo giá cũ tương tự "
-                    f"({float(rag_candidate.get('rag_similarity_score') or 0):.0%}) nhưng chưa đủ chắc để tự áp giá. "
-                    "Sales/QS cần kiểm tra hoặc cho AI học báo giá chuẩn."
+        memory = None
+        if not product_only_mode():
+            memory = _pop_sequential_quote_memory(item, quote_memory)
+            if not memory:
+                memory = (
+                    quote_memory.get(quote_memory_signature(item))
+                    or quote_memory.get(quote_memory_item_description_lookup_key(item))
                 )
-                calc_item["warnings"] = warnings
+            if memory and memory.get("ambiguous"):
+                memory = None
+            if not memory:
+                memory = _composite_quote_memory_price(item, quote_memory_rows)
+            if not memory:
+                rag_threshold = float(os.getenv("RAG_AUTO_APPLY_THRESHOLD", "0.92") or 0.92)
+                rag_candidate = best_quote_memory_candidate(item, rag_memory_rows, min_apply_score=rag_threshold)
+                if rag_candidate and rag_candidate.get("rag_auto_apply"):
+                    memory = rag_candidate
+                    memory["rag_source"] = True
+                elif rag_candidate and float(rag_candidate.get("rag_similarity_score") or 0) >= 0.72:
+                    warnings = list(calc_item.get("warnings") or [])
+                    warnings.append(
+                        "RAG tìm thấy báo giá cũ tương tự "
+                        f"({float(rag_candidate.get('rag_similarity_score') or 0):.0%}) nhưng chưa đủ chắc để tự áp giá. "
+                        "Sales/QS cần kiểm tra hoặc cho AI học báo giá chuẩn."
+                    )
+                    calc_item["warnings"] = warnings
         if memory:
             calc_item = _apply_quote_memory_price(calc_item, memory)
             if memory.get("composite"):
@@ -1131,22 +1409,24 @@ def run_project_pricing(
     # Calculate Project Level Fixed Charges
     item_count = len(calculated_items)
     uses_trained_selling_prices = item_count > 0 and selling_price_memory_count == item_count
+    if product_only_mode():
+        uses_trained_selling_prices = False
     if 0 < selling_price_memory_count < item_count:
         global_warnings.append(
             f"Bộ nhớ AI chỉ khớp {selling_price_memory_count}/{item_count} dòng. "
             "Không được phát hành chính thức cho đến khi QS kiểm tra các dòng chưa khớp và phần phí tổng."
         )
-    fixed_trans = 0.0 if uses_trained_selling_prices else coeffs.get("transportation_total", {}).get("value", 0.0)
-    fixed_mach = 0.0 if uses_trained_selling_prices else coeffs.get("machinery_total", {}).get("value", 0.0)
+    fixed_trans = 0.0 if (uses_trained_selling_prices or product_only_mode()) else coeffs.get("transportation_total", {}).get("value", 0.0)
+    fixed_mach = 0.0 if (uses_trained_selling_prices or product_only_mode()) else coeffs.get("machinery_total", {}).get("value", 0.0)
 
     # Subtotal with fixed charges and project-level commercial allowances.
     base_project_subtotal = total_subtotal + fixed_trans + fixed_mach
-    management_fee = 0.0 if uses_trained_selling_prices else base_project_subtotal * coeffs.get("management_fee_pct", {}).get("value", 0.0)
-    risk_fee = 0.0 if uses_trained_selling_prices else base_project_subtotal * coeffs.get("risk_fee_pct", {}).get("value", 0.0)
+    management_fee = 0.0 if (uses_trained_selling_prices or product_only_mode()) else base_project_subtotal * coeffs.get("management_fee_pct", {}).get("value", 0.0)
+    risk_fee = 0.0 if (uses_trained_selling_prices or product_only_mode()) else base_project_subtotal * coeffs.get("risk_fee_pct", {}).get("value", 0.0)
     project_subtotal = base_project_subtotal + management_fee + risk_fee
 
-    project_profit = 0.0 if uses_trained_selling_prices else project_subtotal * coeffs.get("profit_pct", {}).get("value", 0.0)
-    project_vat = (project_subtotal + project_profit) * coeffs.get("vat_pct", {}).get("value", 0.0)
+    project_profit = 0.0 if (uses_trained_selling_prices or product_only_mode()) else project_subtotal * coeffs.get("profit_pct", {}).get("value", 0.0)
+    project_vat = 0.0 if product_only_mode() else (project_subtotal + project_profit) * coeffs.get("vat_pct", {}).get("value", 0.0)
     project_grand_total = project_subtotal + project_profit + project_vat
 
     summary = {

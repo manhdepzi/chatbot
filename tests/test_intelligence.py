@@ -1,3 +1,8 @@
+import os
+
+os.environ["USE_SUPABASE_DB"] = "0"
+os.environ["PRODUCT_ONLY_MODE"] = "0"
+
 from backend.database import init_db
 from backend.intelligence import (
     build_simple_pdf,

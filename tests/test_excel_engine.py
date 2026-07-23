@@ -1,4 +1,7 @@
 from io import BytesIO
+import os
+
+os.environ["PRODUCT_ONLY_MODE"] = "0"
 
 from openpyxl import Workbook, load_workbook
 

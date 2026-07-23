@@ -1,3 +1,7 @@
+import os
+
+os.environ["USE_SUPABASE_DB"] = "0"
+
 from openpyxl import Workbook
 
 from backend.parser_engine import parse_customer_sheet, parse_reference_quote

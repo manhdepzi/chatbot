@@ -1,3 +1,8 @@
+import math
+import os
+
+os.environ["PRODUCT_ONLY_MODE"] = "0"
+
 from backend.pricing_engine import calculate_duct_area, calculate_item_cost, _kaiyo_quote_area_multiplier
 
 
@@ -206,6 +211,92 @@ def test_kaiyo_t_multiplier_rules():
         "t",
         9,
     ) == 1.3
+
+
+def test_kaiyo_excel_formula_for_straight_duct_unit_m_uses_1000mm():
+    result = calculate_item_cost(
+        {
+            "category": "SMOKE_DUCT",
+            "description": "Ống gió chống cháy EI60, 600x600",
+            "width": 600,
+            "height": 600,
+            "quantity": 15,
+            "unit": "m",
+            "material": "GI",
+            "thickness": 0.75,
+            "warnings": [],
+        },
+        {"vat_pct": {"value": 0, "type": "percentage"}, "profit_pct": {"value": 0, "type": "percentage"}},
+        {("GI", 0.75): 365000},
+        {"SMOKE_DUCT": {"quote_code": "t", "unit_mode": "area", "area_multiplier": 1}},
+    )
+    assert result["quote_code"] == "t"
+    assert result["formula_length"] == 1000
+    assert result["formula_area"] == 2.4
+    assert result["calculated_area"] == 36
+    assert result["subtotal"] == 13140000
+
+
+def test_kaiyo_excel_formula_for_elbow_cv_uses_radius_and_angle():
+    result = calculate_item_cost(
+        {
+            "category": "ELBOW",
+            "description": "Cút 90 độ EI60, 600x600",
+            "width": 600,
+            "height": 600,
+            "radius": 300,
+            "angle": 90,
+            "quantity": 2,
+            "unit": "cai",
+            "material": "GI",
+            "thickness": 0.75,
+            "warnings": [],
+        },
+        {"vat_pct": {"value": 0, "type": "percentage"}, "profit_pct": {"value": 0, "type": "percentage"}},
+        {("GI", 0.75): 365000},
+        {"ELBOW": {"quote_code": "cv", "unit_mode": "area", "area_multiplier": 1.3}},
+    )
+    expected_area = (
+        2
+        * (math.pi * ((600 + 300) ** 2 - 300**2) + 600 * (math.pi * (600 + 300) + math.pi * 300))
+        * (90 / 360)
+        / 1_000_000
+    )
+    assert result["quote_code"] == "cv"
+    assert result["formula_radius"] == 300
+    assert result["formula_angle"] == 90
+    assert result["formula_area"] == round(expected_area, 4)
+    assert result["area_multiplier"] == 1.3
+
+
+def test_kaiyo_excel_formula_for_reducer_g_uses_secondary_size_and_l500():
+    result = calculate_item_cost(
+        {
+            "category": "REDUCER",
+            "description": "Côn thu 600x600/1000x300",
+            "width": 600,
+            "height": 600,
+            "width2": 1000,
+            "height2": 300,
+            "quantity": 1,
+            "unit": "cai",
+            "material": "GI",
+            "thickness": 0.75,
+            "warnings": [],
+        },
+        {"vat_pct": {"value": 0, "type": "percentage"}, "profit_pct": {"value": 0, "type": "percentage"}},
+        {("GI", 0.75): 365000},
+        {"REDUCER": {"quote_code": "g", "unit_mode": "area", "area_multiplier": 1.3}},
+    )
+    expected_area = (
+        (600 + 1000) * math.sqrt(500**2 + ((600 - 300) / 2) ** 2)
+        + (600 + 300) * math.sqrt(500**2 + ((600 - 1000) / 2) ** 2)
+    ) / 1_000_000
+    assert result["quote_code"] == "g"
+    assert result["formula_length"] == 500
+    assert result["formula_width2"] == 1000
+    assert result["formula_height2"] == 300
+    assert result["formula_area"] == round(expected_area, 4)
 
 
 def test_quote_unit_price_is_pre_tax_line_unit_price():

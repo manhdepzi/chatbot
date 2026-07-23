@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Any, Dict, Iterable, List, Tuple
 
-import google.generativeai as genai
 from dotenv import load_dotenv
 
+from backend import llm_provider
 from backend.parser_engine import extract_dimensions_from_text, infer_material, normalize_text, parse_number
 from backend.product_catalog import list_product_master, match_product
 
@@ -16,16 +15,7 @@ load_dotenv()
 
 
 def enabled() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-
-
-def _model():
-    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not key:
-        raise ValueError("Chưa cấu hình GEMINI_API_KEY/GOOGLE_API_KEY.")
-    genai.configure(api_key=key)
-    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    return genai.GenerativeModel(model_name)
+    return llm_provider.enabled()
 
 
 def _json_from_text(text: str) -> Any:
@@ -171,7 +161,13 @@ def enrich_reference_items_with_llm(
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     item_list = [dict(item) for item in items]
     if not enabled():
-        return item_list, {"enabled": False, "processed": 0, "updated": 0, "warnings": ["Chưa cấu hình GEMINI_API_KEY."]}
+        status = llm_provider.status()
+        return item_list, {
+            "enabled": False,
+            "processed": 0,
+            "updated": 0,
+            "warnings": [f"Chưa cấu hình API key cho LLM_PROVIDER={status['provider']}."],
+        }
 
     target_indexes = [idx for idx, item in enumerate(item_list) if item_needs_llm_enrichment(item)]
     target_indexes = target_indexes[: max(0, max_items)]
@@ -256,11 +252,7 @@ Trả về JSON array, mỗi phần tử:
 }}
 """
         try:
-            response = _model().generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json", "temperature": 0.1},
-            )
-            parsed = _json_from_text(response.text)
+            parsed = llm_provider.generate_json(prompt, temperature=0.1)
             if isinstance(parsed, dict):
                 parsed = parsed.get("items") or []
             result_by_id = {int(row.get("id")): row for row in parsed if isinstance(row, dict) and row.get("id")}

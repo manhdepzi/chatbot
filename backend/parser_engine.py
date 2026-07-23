@@ -585,8 +585,6 @@ def classify_product_category(description: str, name: str = "") -> str:
         try:
             categories = supabase_store.get_category_keywords()
         except Exception as exc:
-            if _supabase_strict_enabled():
-                raise
             print(f"Supabase get_category_keywords fallback to SQLite: {exc}")
             categories = []
     else:
@@ -619,7 +617,11 @@ def _contains_keyword(text: str, keyword: str) -> bool:
 
 
 def classify_and_extract_llm(description: str) -> Dict[str, Any]:
-    if not api_key:
+    try:
+        from backend import llm_provider
+    except Exception:
+        return {}
+    if not llm_provider.enabled():
         return {}
 
     try:
@@ -644,10 +646,7 @@ Chỉ trả về JSON:
   "material": null
 }}
 """
-        response = _generate_gemini_content(prompt, generation_config={"response_mime_type": "application/json"})
-        import json
-
-        return json.loads(response.text)
+        return llm_provider.generate_json(prompt, temperature=0.1)
     except Exception as exc:
         print(f"LLM classification failed: {exc}")
         return {}
@@ -701,8 +700,11 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
     height = row_data.get("height") or dims.get("height")
     width2 = row_data.get("width2") or dims.get("width2")
     height2 = row_data.get("height2") or dims.get("height2")
+    width3 = row_data.get("width3") or dims.get("width3")
+    height3 = row_data.get("height3") or dims.get("height3")
     diameter = row_data.get("diameter") or dims.get("diameter")
-    length = row_data.get("length") or dims.get("length", 1200.0)
+    default_length = 1000.0 if normalize_text(unit) in {"m", "met", "meter", "met dai"} else 1200.0
+    length = row_data.get("length") or dims.get("length", default_length)
     thickness = row_data.get("thickness") or dims.get("thickness")
     radius = row_data.get("radius") or dims.get("radius")
     angle = row_data.get("angle") or dims.get("angle")
@@ -712,7 +714,8 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
         str(product_match.get("category")) if product_match else classify_product_category(full_text)
     )
 
-    if category == "UNKNOWN" and api_key:
+    parse_llm_enabled = os.getenv("ENABLE_PARSE_LLM", "0" if os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"} else "1")
+    if category == "UNKNOWN" and parse_llm_enabled.strip().lower() in {"1", "true", "yes", "on"}:
         llm_res = classify_and_extract_llm(full_text)
         if llm_res:
             category = llm_res.get("category") or "UNKNOWN"
@@ -741,6 +744,8 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
         "height": parse_number(height),
         "width2": parse_number(width2),
         "height2": parse_number(height2),
+        "width3": parse_number(width3),
+        "height3": parse_number(height3),
         "diameter": parse_number(diameter),
         "length": parse_number(length),
         "radius": parse_number(radius),
@@ -950,6 +955,8 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
         height = parse_number(sheet.cell(row=row, column=14).value)
         formula_width2 = parse_number(sheet.cell(row=row, column=15).value)
         formula_height2 = parse_number(sheet.cell(row=row, column=16).value)
+        formula_width3 = parse_number(sheet.cell(row=row, column=17).value)
+        formula_height3 = parse_number(sheet.cell(row=row, column=18).value)
         formula_length = parse_number(sheet.cell(row=row, column=19).value)
         formula_radius = parse_number(sheet.cell(row=row, column=20).value)
         formula_angle = parse_number(sheet.cell(row=row, column=21).value)
@@ -1007,6 +1014,8 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
             "formula_height": height,
             "formula_width2": formula_width2,
             "formula_height2": formula_height2,
+            "formula_width3": formula_width3,
+            "formula_height3": formula_height3,
             "formula_length": formula_length,
             "formula_radius": formula_radius,
             "formula_angle": formula_angle,
@@ -1318,7 +1327,11 @@ def _detect_reference_columns(sheet, header_row: int) -> Dict[str, int]:
 
 def assign_marks(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if supabase_store.enabled():
-        prefixes = supabase_store.get_mark_prefixes()
+        try:
+            prefixes = supabase_store.get_mark_prefixes()
+        except Exception as exc:
+            print(f"Supabase get_mark_prefixes fallback to SQLite: {exc}")
+            prefixes = {}
     else:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1350,8 +1363,6 @@ def apply_thickness_rules(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         try:
             rules = supabase_store.get_thickness_rules()
         except Exception as exc:
-            if _supabase_strict_enabled():
-                raise
             print(f"Supabase get_thickness_rules fallback to SQLite: {exc}")
             rules = []
     else:

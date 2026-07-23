@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime
 from io import BytesIO
@@ -13,6 +14,10 @@ import backend.supabase_store as supabase_store
 
 def _supabase_strict_enabled() -> bool:
     return getattr(supabase_store, "strict_enabled", lambda: True)()
+
+
+def _product_only_mode() -> bool:
+    return os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def item_signature(item: Dict[str, Any]) -> str:
@@ -434,6 +439,7 @@ def evaluate_quote_readiness(
     settings: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     settings = settings or get_company_settings()
+    product_only = _product_only_mode()
     blockers: List[str] = []
     questions: List[str] = []
     actions: List[str] = []
@@ -446,21 +452,22 @@ def evaluate_quote_readiness(
         and item.get("reference_source") != "Nhập tay"
     ]
     zero_price_set = set()
-    for item in items:
-        if item.get("reference_unit_price"):
-            continue
-        if item.get("reference_source") == "AI quote memory":
-            continue
-        if item.get("reference_source") == "Nhập tay":
-            continue
-        if item.get("pricing_mode") == "piece" and float(item.get("quote_unit_price") or 0) > 0:
-            continue
-        key = (item.get("material", "GI"), float(item.get("thickness") or 0))
-        if price_overrides.get(key, 0) <= 0:
-            zero_price_set.add(key)
+    if not product_only:
+        for item in items:
+            if item.get("reference_unit_price"):
+                continue
+            if item.get("reference_source") == "AI quote memory":
+                continue
+            if item.get("reference_source") == "Nhập tay":
+                continue
+            if item.get("pricing_mode") == "piece" and float(item.get("quote_unit_price") or 0) > 0:
+                continue
+            key = (item.get("material", "GI"), float(item.get("thickness") or 0))
+            if price_overrides.get(key, 0) <= 0:
+                zero_price_set.add(key)
     zero_prices = sorted(zero_price_set)
     invalid_qty = [item for item in items if float(item.get("quantity") or 0) <= 0]
-    unsafe_priced_items = [
+    unsafe_priced_items = [] if product_only else [
         item for item in items
         if not item.get("can_auto_quote")
         and item.get("reference_source") not in {"AI quote memory", "Nhập tay", "Báo giá cũ"}
@@ -505,7 +512,7 @@ def evaluate_quote_readiness(
     if warnings:
         actions.append("Kiểm tra các cảnh báo trước khi phát hành báo giá.")
 
-    if profit_ratio < min_profit:
+    if not product_only and profit_ratio < min_profit:
         blockers.append(f"Tỷ lệ lợi nhuận {profit_ratio:.1%} thấp hơn mức tối thiểu của công ty {min_profit:.1%}.")
         questions.append("Bạn muốn tăng lợi nhuận, chỉnh chi phí hay xin quản lý phê duyệt?")
 
@@ -538,6 +545,30 @@ def estimator_brief(
     settings: Optional[Dict[str, str]] = None,
 ) -> str:
     settings = settings or get_company_settings()
+    product_only = _product_only_mode()
+    if product_only:
+        lines = [
+            f"Công ty: {settings.get('company_name', '')}",
+            f"Trạng thái: {_vi_status(readiness['status'])} | Điểm sẵn sàng: {readiness['score']}/100",
+            f"Số dòng: {len(items)} | Chưa xác định: {readiness['unknown_count']} | Thiếu kích thước: {readiness['missing_size_count']}",
+            f"Tổng diện tích bóc tách: {summary.get('total_area', 0):,.2f} m2",
+            "",
+            "Câu hỏi cho QS/sales/khách hàng:",
+        ]
+        lines.extend(f"- {q}" for q in readiness["questions"][:10])
+        if not readiness["questions"]:
+            lines.append("- Không phát hiện thiếu đầu vào kỹ thuật.")
+        lines.append("")
+        lines.append("Việc cần xử lý:")
+        lines.extend(f"- {a}" for a in readiness["actions"][:10])
+        if not readiness["actions"]:
+            lines.append("- Đủ điều kiện xuất file sản phẩm theo chính sách hiện tại.")
+        if warnings:
+            lines.append("")
+            lines.append("Cảnh báo:")
+            lines.extend(f"- {warning}" for warning in warnings[:10])
+        return "\n".join(lines)
+
     lines = [
         f"Công ty: {settings.get('company_name', '')}",
         f"Trạng thái: {_vi_status(readiness['status'])} | Điểm sẵn sàng: {readiness['score']}/100",
@@ -642,6 +673,30 @@ def build_audit_report(
     readiness: Dict[str, Any],
     settings: Dict[str, str],
 ) -> str:
+    if _product_only_mode():
+        return "\n".join([
+            "# Biên bản kiểm tra bóc tách sản phẩm HVAC",
+            "<!-- HVAC Product Takeoff Audit Report -->",
+            "",
+            f"Công ty: {settings.get('company_name', '')}",
+            f"Trạng thái: {_vi_status(readiness['status'])}",
+            f"Điểm sẵn sàng: {readiness['score']}/100",
+            f"Tổng số dòng: {len(items)}",
+            f"Sản phẩm chưa xác định: {readiness['unknown_count']}",
+            f"Dòng sai khối lượng: {readiness['invalid_qty_count']}",
+            f"Dòng thiếu kích thước: {readiness['missing_size_count']}",
+            f"Tổng diện tích bóc tách: {summary.get('total_area', 0):,.2f} m2",
+            "",
+            "## Điểm chặn",
+            *(f"- {item}" for item in readiness["blockers"]),
+            "",
+            "## Câu hỏi",
+            *(f"- {item}" for item in readiness["questions"]),
+            "",
+            "## Việc cần xử lý",
+            *(f"- {item}" for item in readiness["actions"]),
+        ])
+
     return "\n".join([
         "# Biên bản kiểm tra báo giá HVAC",
         "<!-- HVAC Quotation Audit Report -->",
@@ -674,6 +729,17 @@ def explain_item(item: Dict[str, Any], coefficients: Dict[str, Any], unit_price:
     area_per_item = area / qty if qty else area
     material = float(item.get("material_cost") or 0)
     subtotal = float(item.get("subtotal") or 0)
+    if _product_only_mode():
+        return "\n".join([
+            f"Dòng: {item.get('mark')} - {item.get('description')}",
+            f"Nhóm: {item.get('category')} | Vật liệu: {item.get('material')} | Độ dày: {item.get('thickness')} mm",
+            f"Kích thước: Rộng={item.get('width')} Cao={item.get('height')} ĐK={item.get('diameter')} Dài={item.get('length')} mm",
+            f"Mã công thức: {item.get('quote_code') or ''}",
+            f"Kết quả diện tích: {area_per_item:.3f} m2/dòng x {qty:g} = {area:.3f} m2",
+            f"Ghi chú: {item.get('quote_note') or ''}",
+            "Chế độ hiện tại: chỉ bóc tách sản phẩm, không tính đơn giá/thành tiền.",
+        ])
+
     return "\n".join([
         f"Dòng: {item.get('mark')} - {item.get('description')}",
         f"Nhóm: {item.get('category')} | Vật liệu: {item.get('material')} | Độ dày: {item.get('thickness')} mm",
@@ -690,6 +756,47 @@ def explain_item(item: Dict[str, Any], coefficients: Dict[str, Any], unit_price:
 
 
 def build_simple_pdf(title: str, items: List[Dict[str, Any]], summary: Dict[str, Any], signer: str = "") -> bytes:
+    if _product_only_mode():
+        labels = {"total_area": "Tổng diện tích"}
+        lines = [title.replace("Báo giá", "Bóc tách sản phẩm"), f"Ngày tạo: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ""]
+        lines.append(f"{labels['total_area']}: {summary.get('total_area', 0):,.2f} m2")
+        lines.append(f"Số dòng sản phẩm: {len(items)}")
+        lines.append("")
+        for idx, item in enumerate(items[:60], start=1):
+            lines.append(
+                f"{idx}. {item.get('description')} | KL {item.get('quantity')} {item.get('unit')} | "
+                f"Mã {item.get('quote_code') or ''}"
+            )
+        if len(items) > 60:
+            lines.append(f"... còn {len(items) - 60} dòng trong file Excel")
+        lines.append("")
+        lines.append(f"Người kiểm tra: {signer or 'Chờ kiểm tra'}")
+
+        text = "\\n".join(line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") for line in lines)
+        content = f"BT /F1 10 Tf 50 790 Td 12 TL ({text}) Tj ET".encode("latin-1", errors="replace")
+        stream = b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream"
+        objects = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            stream,
+        ]
+        output = BytesIO()
+        output.write(b"%PDF-1.4\n")
+        offsets = [0]
+        for idx, obj in enumerate(objects, start=1):
+            offsets.append(output.tell())
+            output.write(f"{idx} 0 obj\n".encode())
+            output.write(obj)
+            output.write(b"\nendobj\n")
+        xref = output.tell()
+        output.write(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode())
+        for offset in offsets[1:]:
+            output.write(f"{offset:010d} 00000 n \n".encode())
+        output.write(f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF".encode())
+        return output.getvalue()
+
     labels = {
         "total_area": "Diện tích",
         "subtotal": "Tổng phụ",

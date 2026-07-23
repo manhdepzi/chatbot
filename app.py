@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import hashlib
 import tempfile
-import importlib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -17,12 +16,6 @@ import backend.parser_engine as parser_engine_module
 import backend.pricing_engine as pricing_engine_module
 import backend.quote_memory as quote_memory_module
 import backend.supabase_store as supabase_store
-
-importlib.reload(supabase_store)
-importlib.reload(intelligence_module)
-importlib.reload(parser_engine_module)
-importlib.reload(quote_memory_module)
-importlib.reload(pricing_engine_module)
 
 from backend.database import get_db_connection, init_db
 from backend.excel_engine import build_quotation_workbook
@@ -63,7 +56,29 @@ from backend.product_catalog import (
 
 
 load_dotenv()
-init_db()
+
+
+@st.cache_resource(show_spinner=False)
+def _boot_database_once() -> bool:
+    init_db()
+    return True
+
+
+_boot_database_once()
+
+
+def _product_only_mode() -> bool:
+    return os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_company_settings() -> Dict[str, str]:
+    return get_company_settings()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_price_lists() -> List[Dict[str, Any]]:
+    return list_price_lists()
 
 st.set_page_config(page_title="Hệ thống báo giá HVAC AI", layout="wide")
 
@@ -422,6 +437,9 @@ def _group_items(items: List[Dict[str, Any]]) -> pd.DataFrame:
 
 
 def _coefficient_editor() -> Dict[str, float]:
+    if _product_only_mode():
+        st.info("Chế độ hiện tại chỉ bóc tách sản phẩm và render vào mẫu Excel; hệ số chi phí đã được tắt.")
+        return {}
     coeffs = get_coefficient_rules()
     overrides: Dict[str, float] = {}
     col1, col2, col3 = st.columns(3)
@@ -468,7 +486,10 @@ def _vi_status(status: str) -> str:
 
 
 def _select_price_list() -> int | None:
-    price_lists = list_price_lists()
+    if _product_only_mode():
+        st.caption("Chế độ product-only: không dùng bảng giá.")
+        return None
+    price_lists = _cached_price_lists()
     if not price_lists:
         return None
     labels = {
@@ -481,6 +502,9 @@ def _select_price_list() -> int | None:
 
 
 def _price_editor(items: List[Dict[str, Any]], price_list_id: int | None) -> Dict[Tuple[str, float], float]:
+    if _product_only_mode():
+        st.info("Không nhập đơn giá trong chế độ product-only.")
+        return {}
     base_prices = get_price_rules_for_list(price_list_id)
     suggestions = learned_suggestions(items)
     detected = sorted(
@@ -515,6 +539,8 @@ def _price_editor(items: List[Dict[str, Any]], price_list_id: int | None) -> Dic
 
 
 def _missing_price_messages(items: List[Dict[str, Any]], price_overrides: Dict[Tuple[str, float], float]) -> List[str]:
+    if _product_only_mode():
+        return []
     missing = set()
     for item in items:
         if item.get("reference_unit_price"):
@@ -532,6 +558,22 @@ def _missing_price_messages(items: List[Dict[str, Any]], price_overrides: Dict[T
 
 
 def _show_metrics(summary: Dict[str, Any]) -> None:
+    if _product_only_mode():
+        metric_cols = st.columns(5)
+        metric_data = [
+            ("Khu vực", f"{summary.get('total_area', 0):,.2f} m2"),
+            ("Số dòng", f"{len(st.session_state.get('calculated_items', [])):,}"),
+            ("Vật liệu", "Không tính"),
+            ("VAT", "Không tính"),
+            ("Tổng cộng", "Không tính"),
+        ]
+        for column, (label, value) in zip(metric_cols, metric_data):
+            column.markdown(
+                f"<div class='metric-card'><div class='metric-label'>{label}</div><div class='metric-value'>{value}</div></div>",
+                unsafe_allow_html=True,
+            )
+        return
+
     metric_cols = st.columns(5)
     metric_data = [
         ("Khu vực", f"{summary.get('total_area', 0):,.2f} m2"),
@@ -839,9 +881,13 @@ def _render_sales_qs_chatbot(items: List[Dict[str, Any]]) -> None:
                     st.success("Đã lưu câu trả lời. Bấm Phân tích khối lượng hoặc Rerun để áp đơn giá vào báo giá.")
 
     with st.expander("Alias sản phẩm đã duyệt", expanded=False):
-        st.dataframe(pd.DataFrame(list_product_aliases()), use_container_width=True, hide_index=True)
+        if st.button("Tải alias sản phẩm", key="load_product_aliases"):
+            st.session_state.product_aliases_frame = pd.DataFrame(list_product_aliases())
+        st.dataframe(st.session_state.get("product_aliases_frame", pd.DataFrame()), use_container_width=True, hide_index=True)
     with st.expander("Lịch sử câu trả lời sales/QS", expanded=False):
-        st.dataframe(pd.DataFrame(list_sales_answers()), use_container_width=True, hide_index=True)
+        if st.button("Tải lịch sử câu trả lời", key="load_sales_answers"):
+            st.session_state.sales_answers_frame = pd.DataFrame(list_sales_answers())
+        st.dataframe(st.session_state.get("sales_answers_frame", pd.DataFrame()), use_container_width=True, hide_index=True)
 
 
 def _filter_reference_priced_warnings(warnings: List[str], items: List[Dict[str, Any]]) -> List[str]:
@@ -1243,9 +1289,10 @@ with st.sidebar:
                     "Hãy tải file KL/BOQ khách gửi vào ô này, còn báo giá đã làm tải ở mục học/so sánh."
                 )
                 st.stop()
-            _upload_to_storage(material_file, "customer_takeoff")
-            if template_file:
-                _upload_to_storage(template_file, "quote_template")
+            if not _product_only_mode():
+                _upload_to_storage(material_file, "customer_takeoff")
+                if template_file:
+                    _upload_to_storage(template_file, "quote_template")
             st.session_state["takeoff_items"] = _parse_uploaded(material_file)
             st.session_state.file_name = material_file.name
             st.session_state.manual_unit_prices = {}
@@ -1343,7 +1390,7 @@ with tab_est:
     )
     reference_messages: List[str] = []
     if use_reference_prices:
-        settings_for_vat = get_company_settings()
+        settings_for_vat = _cached_company_settings()
         calculated_items, summary, ref_warnings = _apply_reference_prices(
             calculated_items,
             st.session_state.get("reference_quote_items", []),
@@ -1368,7 +1415,7 @@ with tab_est:
         st.caption("Dùng phần này khi file mới chưa có bộ nhớ báo giá hoặc sales muốn chỉnh đơn giá bán trực tiếp.")
         manual_prices = _manual_price_editor(calculated_items)
     if manual_prices:
-        settings_for_vat = get_company_settings()
+        settings_for_vat = _cached_company_settings()
         calculated_items, summary, manual_messages = _apply_manual_unit_prices(
             calculated_items,
             manual_prices,
@@ -1376,7 +1423,7 @@ with tab_est:
         )
         reference_messages = reference_messages + manual_messages
     if reconcile_with_reference:
-        settings_for_vat = get_company_settings()
+        settings_for_vat = _cached_company_settings()
         calculated_items, summary, reconcile_messages = _apply_reference_total_reconciliation(
             calculated_items,
             summary,
@@ -1387,7 +1434,7 @@ with tab_est:
     if not summary.get("quote_memory_matched") and not manual_prices and not st.session_state.get("reference_quote_items"):
         warnings.append("Chưa có đơn giá bán chuẩn cho file mới. Hãy nhập đơn giá theo từng dòng hoặc cho AI học từ báo giá đã hoàn thành.")
     warnings = _missing_price_messages(calculated_items, price_overrides) + warnings
-    settings = get_company_settings()
+    settings = _cached_company_settings()
     readiness = evaluate_quote_readiness(calculated_items, summary, warnings, price_overrides, settings)
     st.session_state.calculated_items = calculated_items
     st.session_state.summary = summary
@@ -1439,7 +1486,7 @@ with tab_agent:
     calculated_items = st.session_state.get("calculated_items", [])
     summary = st.session_state.get("summary", {})
     warnings = st.session_state.get("warnings", [])
-    settings = st.session_state.get("company_settings", get_company_settings())
+    settings = st.session_state.get("company_settings") or _cached_company_settings()
     readiness = st.session_state.get("readiness") or evaluate_quote_readiness(
         calculated_items,
         summary,
@@ -1573,17 +1620,23 @@ with tab_memory:
             source_customer=customer,
         )
         st.success(f"Đã học {count} mẫu giá sản phẩm.")
-    suggestions = learned_suggestions(st.session_state.get("calculated_items", []))
-    st.dataframe(pd.DataFrame(list(suggestions.values())), use_container_width=True, hide_index=True)
+    if st.button("Tải gợi ý từ bộ nhớ AI", key="load_memory_suggestions"):
+        suggestions = learned_suggestions(st.session_state.get("calculated_items", []))
+        st.session_state.memory_suggestions_frame = pd.DataFrame(list(suggestions.values()))
+    st.dataframe(st.session_state.get("memory_suggestions_frame", pd.DataFrame()), use_container_width=True, hide_index=True)
 
     st.subheader("Bộ nhớ báo giá hoàn thành")
     st.caption("Đây là đơn giá bán đã học từ các file báo giá hoàn thành.")
-    st.dataframe(pd.DataFrame(list_quote_memory()), use_container_width=True, hide_index=True)
+    if st.button("Tải bộ nhớ báo giá", key="load_quote_memory"):
+        st.session_state.quote_memory_frame = pd.DataFrame(list_quote_memory())
+    st.dataframe(st.session_state.get("quote_memory_frame", pd.DataFrame()), use_container_width=True, hide_index=True)
 
 with tab_prices:
     st.subheader("Bảng giá và nơi nhập đơn giá")
     st.info("Sales có thể nhập nhanh đơn giá vật liệu trong tab Ước tính. Muốn lưu thành bảng giá dùng các nút bên dưới.")
-    st.dataframe(pd.DataFrame(list_price_lists()), use_container_width=True, hide_index=True)
+    if st.button("Tải danh sách bảng giá", key="load_price_lists_table"):
+        st.session_state.price_lists_frame = pd.DataFrame(_cached_price_lists())
+    st.dataframe(st.session_state.get("price_lists_frame", pd.DataFrame()), use_container_width=True, hide_index=True)
     with st.expander("Tạo bảng giá mới"):
         new_name = st.text_input("Tên bảng giá", key="new_price_list_name")
         new_supplier = st.text_input("Nhà cung cấp", key="new_price_list_supplier")
@@ -1618,7 +1671,9 @@ with tab_sessions:
             price_list_id=st.session_state.get("price_list_id"),
         )
         st.success(f"Đã lưu phiên #{session_id}.")
-    sessions = list_quotation_sessions()
+    if st.button("Tải lịch sử phiên", key="load_quotation_sessions"):
+        st.session_state.quotation_sessions_frame = list_quotation_sessions()
+    sessions = st.session_state.get("quotation_sessions_frame", [])
     st.dataframe(pd.DataFrame(sessions), use_container_width=True, hide_index=True)
     if sessions:
         session_map = {f"#{row['id']} {row['name']}": row["id"] for row in sessions}
@@ -1645,7 +1700,9 @@ with tab_admin:
         st.warning("Các chỉnh sửa này ghi trực tiếp vào cơ sở dữ liệu quy tắc SQLite.")
     admin_tabs = st.tabs(["Chính sách công ty", "Giá sản phẩm", "Độ dày", "Hệ số", "Tiền tố ký hiệu", "Danh mục"])
     with admin_tabs[0]:
-        settings_rows = list_company_settings()
+        if st.button("Tải chính sách công ty", key="load_company_settings_admin"):
+            st.session_state.company_settings_admin_rows = list_company_settings()
+        settings_rows = st.session_state.get("company_settings_admin_rows", [])
         settings_frame = pd.DataFrame(settings_rows)
         edited_settings = st.data_editor(settings_frame, use_container_width=True, num_rows="dynamic", key="company_settings_editor")
         if st.button("Lưu chính sách công ty"):
@@ -1682,10 +1739,12 @@ with tab_export:
     st.subheader("Xuất file")
     calculated_items = st.session_state.get("calculated_items", [])
     summary = st.session_state.get("summary", {})
-    settings = st.session_state.get("company_settings", get_company_settings())
+    settings = st.session_state.get("company_settings") or _cached_company_settings()
     readiness = st.session_state.get("readiness") or {}
-    approved = has_final_approval(st.session_state.get("project", ""), st.session_state.get("customer", ""))
-    approval_required = settings.get("require_human_approval", "1") == "1"
+    approval_required = (not _product_only_mode()) and settings.get("require_human_approval", "1") == "1"
+    approved = True
+    if approval_required:
+        approved = has_final_approval(st.session_state.get("project", ""), st.session_state.get("customer", ""))
     no_calculated_items = not calculated_items
     unresolved_checklist = int(st.session_state.get("sales_checklist_unresolved", 0) or 0)
     partial_memory_match = bool(summary.get("quote_memory_partial_match"))
