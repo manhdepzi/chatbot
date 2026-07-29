@@ -36,7 +36,7 @@ def list_price_lists() -> List[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase list_price_lists fallback to SQLite: {exc}")
+            print(f"Supabase list_price_lists unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute("""
         SELECT id, name, supplier, region, customer, valid_from, valid_to, notes, is_default
@@ -54,7 +54,7 @@ def get_company_settings() -> Dict[str, str]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase get_company_settings fallback to SQLite: {exc}")
+            print(f"Supabase get_company_settings unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute("SELECT key, value FROM company_settings").fetchall()
     conn.close()
@@ -69,7 +69,7 @@ def update_company_setting(key: str, value: str, description: str = "") -> None:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase update_company_setting fallback to SQLite: {exc}")
+            print(f"Supabase update_company_setting unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     conn.execute("""
         INSERT INTO company_settings (key, value, description)
@@ -88,7 +88,7 @@ def list_company_settings() -> List[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase list_company_settings fallback to SQLite: {exc}")
+            print(f"Supabase list_company_settings unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute("SELECT key, value, description FROM company_settings ORDER BY key").fetchall()
     conn.close()
@@ -102,7 +102,7 @@ def create_price_list(name: str, supplier: str = "", region: str = "", customer:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase create_price_list fallback to SQLite: {exc}")
+            print(f"Supabase create_price_list unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -125,7 +125,7 @@ def get_price_rules_for_list(price_list_id: Optional[int]) -> Dict[Tuple[str, fl
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase get_price_rules_for_list fallback to SQLite: {exc}")
+            print(f"Supabase get_price_rules_for_list unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     if price_list_id:
         rows = conn.execute("""
@@ -157,7 +157,7 @@ def upsert_price_list_item(
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase upsert_price_list_item fallback to SQLite: {exc}")
+            print(f"Supabase upsert_price_list_item unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     conn.execute("""
         INSERT INTO price_list_items (price_list_id, material, thickness, unit_price, unit, source)
@@ -189,7 +189,7 @@ def learn_from_quote(
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase learn_from_quote fallback to SQLite: {exc}")
+            print(f"Supabase learn_from_quote unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     count = 0
     for item in items:
@@ -237,7 +237,7 @@ def learned_suggestions(items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase learned_suggestions fallback to SQLite: {exc}")
+            print(f"Supabase learned_suggestions unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     suggestions: Dict[str, Dict[str, Any]] = {}
     for item in items:
@@ -293,7 +293,7 @@ def save_quotation_session(
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase save_quotation_session fallback to SQLite: {exc}")
+            print(f"Supabase save_quotation_session unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     serializable_prices = {f"{material}|{thickness}": price for (material, thickness), price in price_overrides.items()}
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -325,7 +325,7 @@ def list_quotation_sessions(limit: int = 30) -> List[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase list_quotation_sessions fallback to SQLite: {exc}")
+            print(f"Supabase list_quotation_sessions unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute("""
         SELECT id, name, customer, project, source_file, created_at, updated_at
@@ -344,7 +344,7 @@ def load_quotation_session(session_id: int | str) -> Optional[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase load_quotation_session fallback to SQLite: {exc}")
+            print(f"Supabase load_quotation_session unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     row = conn.execute("SELECT * FROM quotation_sessions WHERE id = ?", (session_id,)).fetchone()
     conn.close()
@@ -615,7 +615,7 @@ def save_approval(
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase save_approval fallback to SQLite: {exc}")
+            print(f"Supabase save_approval unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -636,7 +636,7 @@ def list_approvals(limit: int = 50) -> List[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase list_approvals fallback to SQLite: {exc}")
+            print(f"Supabase list_approvals unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute("""
         SELECT id, session_id, project, customer, status, approver, notes, readiness_score, created_at
@@ -655,7 +655,7 @@ def has_final_approval(project: str, customer: str) -> bool:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase has_final_approval fallback to SQLite: {exc}")
+            print(f"Supabase has_final_approval unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     row = conn.execute("""
         SELECT id FROM quotation_approvals

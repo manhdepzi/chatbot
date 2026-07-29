@@ -1,5 +1,13 @@
 # Supabase database design
 
+## Production runtime rule
+
+When `USE_SUPABASE_DB=1`, the app must use Supabase/PostgreSQL only.
+SQLite is disabled at runtime to avoid reading or writing the wrong local data.
+If Supabase is misconfigured or unavailable, the app should show the real error instead of falling back to SQLite.
+
+SQLite remains only for local tests, one-off debugging with `USE_SUPABASE_DB=0`, and legacy migration scripts.
+
 Có thể làm trên Supabase. Supabase dùng PostgreSQL nên phù hợp hơn SQLite cho bản công ty: nhiều người dùng, phân quyền, backup, file storage, audit log và duyệt dữ liệu trước khi AI học.
 
 ## Cách dùng
@@ -63,7 +71,7 @@ USE_SUPABASE_DB=0
 1. Cài dependency mới: `pip install -r requirements.txt`.
 2. Kiểm tra cấu hình: `python supabase/check_config.py`.
 3. Migrate dữ liệu cũ từ `backend/hvac_quotation.db`: `python supabase/migrate_sqlite_to_supabase.py`.
-4. App hiện đã đọc/ghi Supabase cho bảng giá, quy tắc, bộ nhớ báo giá, phiên báo giá và phê duyệt. Nếu Supabase lỗi, app fallback SQLite.
+4. App đọc/ghi Supabase cho bảng giá, quy tắc, bộ nhớ báo giá, phiên báo giá và phê duyệt. Khi `USE_SUPABASE_DB=1`, app không fallback SQLite; nếu Supabase lỗi thì app báo lỗi thật để tránh đọc/ghi nhầm dữ liệu local.
 5. File upload và file xuất đã được lưu lên Supabase Storage bucket `quotation-files`, đồng thời ghi metadata vào `project_files`.
 6. Thêm màn hình đăng nhập và phân quyền.
 7. Bắt buộc quy trình duyệt trước khi `quote_memory_items` được dùng để báo giá tự động.
@@ -78,8 +86,8 @@ USE_SUPABASE_DB=0
 - `quotation_approvals`
 - Supabase Storage `quotation-files` và bảng metadata `project_files`
 
-Các phần còn đang dùng SQLite tạm thời:
+SQLite chỉ còn dùng cho dev/test hoặc migrate dữ liệu cũ:
 
-- Một số setting nhỏ trong `company_settings`
-- Các bảng admin editor dạng raw table trong Streamlit
-- File tạm local chỉ còn dùng trong lúc parser đọc nội dung upload, sau đó file vẫn được lưu lâu dài trên Storage
+- `backend/hvac_quotation.db` không được dùng khi `USE_SUPABASE_DB=1`.
+- `USE_SUPABASE_DB=0` chỉ dùng cho test local hoặc debug riêng.
+- File tạm local chỉ còn dùng trong lúc parser đọc nội dung upload; bản lưu lâu dài nằm trên Supabase Storage.

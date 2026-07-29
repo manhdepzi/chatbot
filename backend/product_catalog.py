@@ -309,7 +309,8 @@ def list_product_aliases(limit: int = 500) -> List[Dict[str, Any]]:
             return supabase_store.list_product_aliases(limit)
         except Exception as exc:
             if getattr(supabase_store, "strict_enabled", lambda: True)():
-                print(f"Supabase list_product_aliases unavailable, using local fallback: {exc}")
+                raise
+            print(f"Supabase list_product_aliases unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     ensure_product_catalog_schema(conn)
     rows = conn.execute(
@@ -359,7 +360,9 @@ def _product_alias_match_rows_cached(ttl_seconds: int = 300) -> List[Dict[str, A
         try:
             rows = supabase_store.product_alias_match_rows()
         except Exception as exc:
-            print(f"Supabase product_alias_match_rows unavailable, using local fallback: {exc}")
+            if getattr(supabase_store, "strict_enabled", lambda: True)():
+                raise
+            print(f"Supabase product_alias_match_rows unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
             rows = _local_product_alias_match_rows()
     else:
         rows = _local_product_alias_match_rows()
@@ -447,7 +450,8 @@ def list_sales_answers(limit: int = 200) -> List[Dict[str, Any]]:
             return supabase_store.list_sales_answers(limit)
         except Exception as exc:
             if getattr(supabase_store, "strict_enabled", lambda: True)():
-                print(f"Supabase list_sales_answers unavailable, using local fallback: {exc}")
+                raise
+            print(f"Supabase list_sales_answers unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     ensure_product_catalog_schema(conn)
     rows = conn.execute(

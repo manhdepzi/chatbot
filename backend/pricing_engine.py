@@ -531,7 +531,7 @@ def get_coefficient_rules() -> Dict[str, Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase get_coefficient_rules fallback to SQLite: {exc}")
+            print(f"Supabase get_coefficient_rules unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT key, value, type FROM coefficient_rules")
@@ -553,7 +553,7 @@ def get_pricing_rules() -> Dict[tuple[str, float], float]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase get_pricing_rules fallback to SQLite: {exc}")
+            print(f"Supabase get_pricing_rules unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT material, thickness, unit_price FROM pricing_rules")
@@ -573,7 +573,7 @@ def get_product_pricing_rules() -> Dict[str, Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase get_product_pricing_rules fallback to SQLite: {exc}")
+            print(f"Supabase get_product_pricing_rules unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""

@@ -104,37 +104,205 @@ Chọn provider LLM:
 - `LLM_PROVIDER=openai`: dùng OpenAI cho LLM text khi import báo giá/chuẩn hóa dòng khó.
 - OCR ảnh hiện vẫn dùng Gemini OCR trong `parser_engine.py`; nếu muốn OCR ảnh bằng OpenAI cần bổ sung luồng vision riêng.
 
-## 6. Cài đặt và chạy local
+## 6. Cai dat va chay local
+
+### 6.1. Yeu cau may chay
+
+- Windows 10/11.
+- Khuyen nghi Python 3.11 hoac 3.12.
+- Co Internet de ket noi Supabase va goi AI API.
+- Da co file `.env` cau hinh Supabase/API key.
+
+Kiem tra Python:
 
 ```powershell
-cd D:\chatbot
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-streamlit run app.py
+python --version
 ```
 
-Mở trình duyệt:
+Neu may co nhieu ban Python, nen dung Python 3.11/3.12 de tao venv.
+
+### 6.2. Cai moi tu dau
+
+Vao dung thu muc du an. Vi du khi ban giao project nam tai:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+```
+
+Tao moi truong Python moi:
+
+```powershell
+python -m venv venv
+```
+
+Kich hoat moi truong:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Cai thu vien:
+
+```powershell
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Chay app:
+
+```powershell
+python -m streamlit run app.py
+```
+
+Mo trinh duyet:
 
 ```text
 http://localhost:8501
 ```
 
-Nếu chỉ muốn chạy dev không dùng Supabase:
+Khuyen nghi luon chay bang:
 
 ```powershell
-$env:USE_SUPABASE_DB="0"
+python -m streamlit run app.py
+```
+
+Khong nen chay bang:
+
+```powershell
 streamlit run app.py
 ```
 
-Production nên để:
+Ly do: khi copy/move thu muc du an, file `venv\Scripts\streamlit.exe` co the van nho duong dan Python cu, gay loi launcher.
+
+### 6.3. Chay production noi bo voi Supabase
+
+Trong `.env` can co:
 
 ```env
 USE_SUPABASE_DB=1
 SUPABASE_DB_STRICT=1
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+SUPABASE_STORAGE_BUCKET=quotation-files
 ```
 
-Với `SUPABASE_DB_STRICT=1`, nếu Supabase lỗi thì app báo lỗi thật, không âm thầm ghi sang SQLite.
+Voi cau hinh nay:
+
+- App chi dung Supabase/PostgreSQL.
+- SQLite runtime bi chan de tranh doc/ghi nham du lieu local.
+- Neu Supabase loi, app bao loi that de ky thuat xu ly.
+
+Chay:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+.\venv\Scripts\Activate.ps1
+python -m streamlit run app.py
+```
+
+### 6.4. Chay dev/test khong dung Supabase
+
+Chi dung khi ky thuat muon test offline:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+.\venv\Scripts\Activate.ps1
+$env:USE_SUPABASE_DB="0"
+python -m streamlit run app.py
+```
+
+Khong dung che do nay cho production.
+
+### 6.5. Kiem tra cau hinh Supabase
+
+Sau khi dien `.env`, chay:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+.\venv\Scripts\Activate.ps1
+python supabase\check_config.py
+```
+
+Neu bao thieu `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` thi can kiem tra lai `.env`.
+
+### 6.6. Chay test ky thuat
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+.\venv\Scripts\Activate.ps1
+$env:USE_SUPABASE_DB="0"
+python -m pytest -q
+```
+
+Ket qua mong muon:
+
+```text
+19 passed
+```
+
+Neu SQLite local trong goi ban giao bi readonly, hay tao lai venv va chay test tren thu muc co quyen ghi, hoac dung Supabase production de van hanh app.
+
+### 6.7. Loi thuong gap khi chay
+
+#### Loi venv nho duong dan cu
+
+Vi du loi:
+
+```text
+Fatal error in launcher: Unable to create process using
+'"D:\chatbot\venv\Scripts\python.exe" "D:\Duan_Kaiyo\chatbot\venv\Scripts\streamlit.exe" run app.py'
+The system cannot find the file specified.
+```
+
+Nguyen nhan:
+
+- Project da bi copy/move tu `D:\chatbot` sang `D:\Duan_Kaiyo\chatbot`.
+- `streamlit.exe` trong venv van nho duong dan Python cu.
+
+Cach xu ly nhanh:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+.\venv\Scripts\Activate.ps1
+python -m streamlit run app.py
+```
+
+Neu van loi, tao lai venv:
+
+```powershell
+cd D:\Duan_Kaiyo\chatbot
+Remove-Item -Recurse -Force .\venv
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
+#### Loi khong chay duoc script Activate.ps1
+
+Neu PowerShell chan activate:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Sau do chay lai:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+#### Loi Supabase connection
+
+Kiem tra:
+
+```powershell
+python supabase\check_config.py
+```
+
+Neu dung production, khong doi ve SQLite de ne loi. Can sua `DATABASE_URL`, network hoac Supabase project.
 
 ## 7. Khởi tạo Supabase
 

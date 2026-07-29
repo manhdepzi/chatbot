@@ -1,6 +1,10 @@
 .env
 logs/
 __pycache__/
+**/__pycache__/
+.pytest_cache/
+.tmp_pytest*/
+backend/*.db
 *.log
 .DS_Store
 models/

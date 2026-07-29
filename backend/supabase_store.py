@@ -224,15 +224,19 @@ DEFAULT_PRODUCT_ALIASES = [
 ]
 
 
+def requested() -> bool:
+    return os.getenv("USE_SUPABASE_DB", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
 def enabled() -> bool:
     database_url = os.getenv("DATABASE_URL", "")
-    if os.getenv("USE_SUPABASE_DB", "1") == "0":
+    if not requested():
         return False
     return bool(database_url and "[YOUR-PASSWORD]" not in database_url and psycopg is not None)
 
 
 def strict_enabled() -> bool:
-    return enabled() and os.getenv("SUPABASE_DB_STRICT", "1") != "0"
+    return requested()
 
 
 @contextmanager

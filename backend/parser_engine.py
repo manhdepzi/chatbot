@@ -585,7 +585,9 @@ def classify_product_category(description: str, name: str = "") -> str:
         try:
             categories = supabase_store.get_category_keywords()
         except Exception as exc:
-            print(f"Supabase get_category_keywords fallback to SQLite: {exc}")
+            if _supabase_strict_enabled():
+                raise
+            print(f"Supabase get_category_keywords unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
             categories = []
     else:
         conn = get_db_connection()
@@ -693,6 +695,8 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
 
         product_match = match_product(full_text)
     except Exception as exc:
+        if _supabase_strict_enabled():
+            raise
         print(f"Product catalog match skipped: {exc}")
     dims = extract_dimensions_from_text(full_text)
 
@@ -1330,7 +1334,9 @@ def assign_marks(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         try:
             prefixes = supabase_store.get_mark_prefixes()
         except Exception as exc:
-            print(f"Supabase get_mark_prefixes fallback to SQLite: {exc}")
+            if _supabase_strict_enabled():
+                raise
+            print(f"Supabase get_mark_prefixes unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
             prefixes = {}
     else:
         conn = get_db_connection()
@@ -1363,7 +1369,9 @@ def apply_thickness_rules(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         try:
             rules = supabase_store.get_thickness_rules()
         except Exception as exc:
-            print(f"Supabase get_thickness_rules fallback to SQLite: {exc}")
+            if _supabase_strict_enabled():
+                raise
+            print(f"Supabase get_thickness_rules unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
             rules = []
     else:
         conn = get_db_connection()

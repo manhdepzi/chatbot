@@ -54,7 +54,7 @@ def train_quote_memory(
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase train_quote_memory fallback to SQLite: {exc}")
+            print(f"Supabase train_quote_memory unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     count = 0
     signature_occurrences: Dict[str, int] = {}
@@ -182,7 +182,7 @@ def quote_memory_lookup(items: Iterable[Dict[str, Any]], source_file: str = "") 
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase quote_memory_lookup fallback to SQLite: {exc}")
+            print(f"Supabase quote_memory_lookup unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
             rows = []
     if not rows and not supabase_store.enabled():
         conn = get_db_connection()
@@ -306,7 +306,7 @@ def list_quote_memory(limit: int = 200) -> List[Dict[str, Any]]:
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase list_quote_memory fallback to SQLite: {exc}")
+            print(f"Supabase list_quote_memory unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     rows = conn.execute(
         """
@@ -336,7 +336,7 @@ def quote_memory_candidate_rows(limit: int = 2000, source_file: str = "") -> Lis
         except Exception as exc:
             if _supabase_strict_enabled():
                 raise
-            print(f"Supabase quote_memory_candidate_rows fallback to SQLite: {exc}")
+            print(f"Supabase quote_memory_candidate_rows unavailable; using local dev DB because USE_SUPABASE_DB=0: {exc}")
     conn = get_db_connection()
     source_clause = "WHERE source_file = ?" if source_file else ""
     params = (source_file, limit) if source_file else (limit,)

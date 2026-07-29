@@ -3,14 +3,29 @@ import os
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hvac_quotation.db")
 
+def _supabase_requested() -> bool:
+    return os.getenv("USE_SUPABASE_DB", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
 def get_db_connection():
+    if _supabase_requested():
+        raise RuntimeError(
+            "Runtime production đang cấu hình dùng Supabase/PostgreSQL. "
+            "SQLite đã bị tắt để tránh đọc/ghi nhầm dữ liệu local. "
+            "Nếu chỉ chạy test/dev local, đặt USE_SUPABASE_DB=0."
+        )
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     import backend.supabase_store as supabase_store
-    if supabase_store.enabled():
+    if supabase_store.requested():
+        if not supabase_store.enabled():
+            raise RuntimeError(
+                "USE_SUPABASE_DB=1 nhưng Supabase chưa cấu hình hợp lệ. "
+                "Hãy kiểm tra DATABASE_URL, psycopg và biến môi trường Supabase."
+            )
         supabase_store.ensure_seed_data()
         return
 
