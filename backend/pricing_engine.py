@@ -218,6 +218,8 @@ def calculate_duct_area(item: Dict[str, Any]) -> float:
     l = item.get("length") or 1200.0 # default length is 1.2m
     q = item.get("quantity", 1.0)
     desc = item.get("description", "")
+    if _unit_key(item.get("unit")) == "m2":
+        return 1.0
     if category in DAMPER_CATEGORIES and (not item.get("length") or (l == 1200.0 and not _has_explicit_length(item))):
         l = DEFAULT_DAMPER_LENGTH_MM.get(category, l)
 
@@ -231,7 +233,9 @@ def calculate_duct_area(item: Dict[str, Any]) -> float:
 
     # Rectangular Duct
     if category in ["SUPPLY_DUCT", "RETURN_DUCT", "FRESH_AIR_DUCT", "EXHAUST_AIR_DUCT", "SMOKE_DUCT"]:
-        if w_m > 0 and h_m > 0:
+        if _unit_key(item.get("unit")) == "m2":
+            area = 1.0
+        elif w_m > 0 and h_m > 0:
             area = 2 * (w_m + h_m) * l_m
         elif w_m > 0:
             area = w_m * l_m # Flat sheet/other
@@ -621,7 +625,7 @@ def _product_only_item(
             item.get("pressure_class"),
         ),
         "quote_brand": product_rule.get("brand", "Kaiyo Viet Nam"),
-        "quote_note": (kaiyo_formula or {}).get("quote_note") or product_rule.get("note", ""),
+        "quote_note": item.get("remark") or "",
         "quote_unit_price": None,
         "quote_output_unit_price": None,
         "pricing_mode": unit_mode,
@@ -689,7 +693,7 @@ def calculate_item_cost(
     if qty <= 0:
         warnings.append("Số lượng phải lớn hơn 0.")
     if item.get("category") in ["SUPPLY_DUCT", "RETURN_DUCT", "FRESH_AIR_DUCT", "EXHAUST_AIR_DUCT", "SMOKE_DUCT", "ELBOW", "TEE", "REDUCER", "TRANSITION", "CROSS", "OFFSET"]:
-        if not item.get("width") or not item.get("height"):
+        if _unit_key(item.get("unit")) != "m2" and (not item.get("width") or not item.get("height")):
             if not item.get("diameter"):
                 warnings.append("Thiếu kích thước rộng/cao hoặc đường kính.")
     if not product_only_mode() and (not item.get("thickness") or item.get("thickness") <= 0):
@@ -1458,4 +1462,7 @@ def run_project_pricing(
             global_warnings.append(f"Item #{calc_item.get('item_no') or idx+1} ({calc_item.get('mark')}): {'; '.join(calc_item['warnings'])}")
 
     return calculated_items, summary, global_warnings
+
+
+
 

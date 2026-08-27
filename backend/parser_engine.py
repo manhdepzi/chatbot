@@ -271,6 +271,62 @@ def _parse_no_header_quantity_matrix(sheet) -> List[Dict[str, Any]]:
     return parsed_items
 
 
+def _looks_like_ycbg_request_sheet(sheet) -> bool:
+    """Detect simple customer RFQ sheets: A=STT, B=description, D=unit, E=quantity."""
+    title_text = normalize_text(sheet.title)
+    top_text = " ".join(
+        normalize_text(sheet.cell(row=row, column=col).value)
+        for row in range(1, min(sheet.max_row, 12) + 1)
+        for col in range(1, min(sheet.max_column, 8) + 1)
+    )
+    if "yeu cau bao gia" not in f"{title_text} {top_text}" and "ycbg" not in f"{title_text} {top_text}":
+        return False
+
+    hits = 0
+    for row in range(1, min(sheet.max_row, 120) + 1):
+        item_no = parse_number(sheet.cell(row=row, column=1).value)
+        description = str(sheet.cell(row=row, column=2).value or "").strip()
+        unit = normalize_text(sheet.cell(row=row, column=4).value)
+        qty = parse_number(sheet.cell(row=row, column=5).value)
+        if item_no is not None and description and unit in {"m", "m2", "cai", "bo", "set", "tan", "lo"} and qty and qty > 0:
+            hits += 1
+    return hits >= 3
+
+
+def _parse_ycbg_request_sheet(sheet) -> List[Dict[str, Any]]:
+    parsed_items: List[Dict[str, Any]] = []
+    current_section = ""
+    for row in range(1, sheet.max_row + 1):
+        first_cell = sheet.cell(row=row, column=1).value
+        description = str(sheet.cell(row=row, column=2).value or "").strip()
+        unit = str(sheet.cell(row=row, column=4).value or "").strip()
+        qty = parse_number(sheet.cell(row=row, column=5).value)
+
+        if description == "" and first_cell and parse_number(first_cell) is None:
+            section_text = normalize_text(first_cell)
+            if section_text and not _is_non_product_description(section_text):
+                current_section = str(first_cell).strip()
+            continue
+
+        if parse_number(first_cell) is None or not description or not unit or qty is None or qty <= 0:
+            continue
+
+        row_data = {
+            "item_no": first_cell,
+            "description": description,
+            "unit": unit,
+            "quantity": qty,
+            "remark": current_section,
+        }
+        item = _build_takeoff_item(row_data, source_row=row)
+        if item:
+            item["parser_source"] = "YCBG A/B/D/E"
+            parsed_items.append(item)
+
+    parsed_items = assign_marks(parsed_items)
+    parsed_items = apply_thickness_rules(parsed_items)
+    return parsed_items
+
 def _looks_like_order_takeoff_sheet(sheet) -> bool:
     for row in range(1, min(sheet.max_row, 25) + 1):
         text = " ".join(
@@ -433,7 +489,7 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
     if length_match:
         dims["length"] = parse_number(length_match.group(1))
 
-    thickness_match = re.search(rf"(?:day|do day|ton day|dày|độ dày|tôn dày|t)\s*{number}\s*(?:mm)?", normalized)
+    thickness_match = re.search(rf"(?:day|do day|ton day|dày|độ dày|tôn dày|chieu day|thick|tk|t\s*=)\s*{number}\s*(?:mm)?", normalized)
     if thickness_match:
         dims["thickness"] = parse_number(thickness_match.group(1))
 
@@ -506,7 +562,7 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
     if length_match:
         dims["length"] = parse_number(length_match.group(1))
 
-    thickness_match = re.search(rf"(?:day|do day|ton day|dày|độ dày|ton dày|tôn dày|t)\s*{number}\s*(?:mm)?", normalized)
+    thickness_match = re.search(rf"(?:day|do day|ton day|dày|độ dày|ton dày|tôn dày|chieu day|thick|tk|t\s*=)\s*{number}\s*(?:mm)?", normalized)
     if thickness_match:
         dims["thickness"] = parse_number(thickness_match.group(1))
 
@@ -552,7 +608,12 @@ def classify_product_category(description: str, name: str = "") -> str:
     direct_rules = [
         ("END_CAP", ["ong bit dau", "bit dau", "bit dau"]),
         ("PLENUM_BOX", ["hop gio", "hop plenum", "plenum"]),
-        ("SQUARE_DIFFUSER", ["cua nan", "cua gio nan", "mieng gio", "cua gio", "eag", "teag", "grille", "diffuser"]),
+        ("FLEXIBLE_DUCT", ["flexible air duct", "ong gio mem", "ong mem"]),
+        ("INSULATION", ["ductwork insulation", "cach nhiet ong gio", "bao on ong gio", "cach nhiet"]),
+        ("FILTER", ["g4 filter", "loc g4", "filter"]),
+        ("LOUVER", ["ventcap", "vent cap", "nap thong gio"]),
+        ("ACCESSORY", ["insect screen", "lcct", "luoi chan con trung", "luoi chong con trung"]),
+        ("SQUARE_DIFFUSER", ["cua nan", "cua gio nan", "mieng gio", "cua gio", "air grill", "air grille", "eag", "teag", "grille", "diffuser"]),
         ("FLEXIBLE_CONNECTOR", ["khop noi mem", "co bat", "vai bat canvas", "simili"]),
         ("MOTORIZED_DAMPER", ["van mfd", "mfd", "motorized fire damper", "van chan lua dong mo bang mo to", "van chan lua dong mo bang motor"]),
         ("FIRE_DAMPER", ["fire damper", "van fd", "van chan lua", "fd"]),
@@ -873,6 +934,11 @@ def parse_customer_sheet(file_path: str) -> List[Dict[str, Any]]:
 
     if _looks_like_no_header_quantity_matrix(sheet):
         parsed_items = _parse_no_header_quantity_matrix(sheet)
+        workbook.close()
+        return parsed_items
+
+    if _looks_like_ycbg_request_sheet(sheet):
+        parsed_items = _parse_ycbg_request_sheet(sheet)
         workbook.close()
         return parsed_items
 
@@ -1402,4 +1468,7 @@ def apply_thickness_rules(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         item["thickness"] = matched_thickness or (0.6 if material == "GI" else 0.8)
 
     return items
+
+
+
 
