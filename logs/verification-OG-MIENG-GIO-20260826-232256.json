@@ -1,0 +1,1069 @@
+{
+  "timestamp": "2026-08-26T23:22:56",
+  "inputs": {
+    "takeoff": "C:\\Users\\admin\\Downloads\\OG & MIENG GIO.xlsx",
+    "template": "C:\\Users\\admin\\Downloads\\Workbook1.xlsx"
+  },
+  "steps": [
+    {
+      "name": "parse_customer_sheet",
+      "status": "ok",
+      "items": 28
+    },
+    {
+      "name": "run_project_pricing_product_only",
+      "status": "ok",
+      "items": 28
+    },
+    {
+      "name": "build_quotation_workbook_with_template",
+      "status": "ok",
+      "output": "D:\\Duan_Kaiyo\\chatbot\\logs\\test-export-OG-MIENG-GIO-20260826-232256.xlsx",
+      "bytes": 847141
+    }
+  ],
+  "errors": [],
+  "takeoff_workbook": {
+    "sheets": [
+      "PHIẾU YCBG"
+    ],
+    "selected_sheet": "PHIẾU YCBG",
+    "rows": 38,
+    "cols": 6,
+    "detected_header_row": 1,
+    "detected_mapping": {
+      "item_no": 1,
+      "code": 2,
+      "description": 3,
+      "unit": 4,
+      "quantity": 5
+    }
+  },
+  "parse_summary": {
+    "item_count": 28,
+    "category_counts": {
+      "SUPPLY_DUCT": 12,
+      "PLENUM_BOX": 1,
+      "SQUARE_DIFFUSER": 4,
+      "BACK_DRAFT_DAMPER": 3,
+      "VOLUME_CONTROL_DAMPER": 3,
+      "LOUVER": 5
+    },
+    "missing_width_height_or_diameter": 5,
+    "unknown_category": 0,
+    "missing_quantity": 0
+  },
+  "items": [
+    {
+      "item_no": "1",
+      "source_row": 9,
+      "description": "Air duct 0.58mm tk\nỐng gió dày 0.58mm",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.58,
+      "material": "GI",
+      "quantity": 1560.0,
+      "unit": "m2",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "2",
+      "source_row": 10,
+      "description": "Air duct 0.75mm tk\nỐng gió dày 0.75mm",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.75,
+      "material": "GI",
+      "quantity": 325.0,
+      "unit": "m2",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "3",
+      "source_row": 11,
+      "description": "Ductwork insulation thick 25mm\nCách nhiệt ống gió dày 25mm",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 25.0,
+      "material": "GI",
+      "quantity": 388.0,
+      "unit": "m2",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "4",
+      "source_row": 12,
+      "description": "Flexible air duct with insulation D200\nỐng gió mềm kèm cách nhiệt D200",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 200.0,
+      "length": 1000.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 240.0,
+      "unit": "m",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "5",
+      "source_row": 13,
+      "description": "Flexible air duct without insulation D100\nỐng gió mềm không cách nhiệt D100",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 100.0,
+      "length": 1000.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 8.0,
+      "unit": "m",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "6",
+      "source_row": 14,
+      "description": "Flexible air duct without insulation D150\nỐng gió mềm không cách nhiệt D150",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 150.0,
+      "length": 1000.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 532.0,
+      "unit": "m",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "7",
+      "source_row": 15,
+      "description": "Flexible air duct without insulation D200\nỐng gió mềm không cách nhiệt D200",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 200.0,
+      "length": 1000.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 108.0,
+      "unit": "m",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "8",
+      "source_row": 16,
+      "description": "Supply and Return Air Plenum Box for Indoor Unit\nBox gió cấp và hồi dàn lạnh",
+      "category": "PLENUM_BOX",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 18.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "9",
+      "source_row": 17,
+      "description": "Supply air grill with box 1200x150\nMiệng gió cấp kèm box 1200x150",
+      "category": "SQUARE_DIFFUSER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 1200.0,
+      "height": 150.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 1.0,
+      "material": "GI",
+      "quantity": 15.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "10",
+      "source_row": 18,
+      "description": "Return air grill with box 1200x150\nMiệng gió hồi kèm box 1200x150",
+      "category": "SQUARE_DIFFUSER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 1200.0,
+      "height": 150.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 1.0,
+      "material": "GI",
+      "quantity": 15.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG DHKK",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "1",
+      "source_row": 21,
+      "description": "EAG 300x300",
+      "category": "SQUARE_DIFFUSER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 300.0,
+      "height": 300.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 210.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "2",
+      "source_row": 22,
+      "description": "Ventcap D250",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 250.0,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 129.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "3",
+      "source_row": 23,
+      "description": "Insect screen/ LCCT 200x250",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 200.0,
+      "height": 250.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 200.0,
+      "material": "GI",
+      "quantity": 25.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "4",
+      "source_row": 24,
+      "description": "Insect screen/ LCCT 300x200",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 300.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 300.0,
+      "material": "GI",
+      "quantity": 25.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "5",
+      "source_row": 25,
+      "description": "G4 Filter/ Lọc G4",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 53.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "6",
+      "source_row": 26,
+      "description": "NRD D150",
+      "category": "BACK_DRAFT_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 150.0,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 126.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "7",
+      "source_row": 27,
+      "description": "NRD 200x200",
+      "category": "BACK_DRAFT_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 200.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 29.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "8",
+      "source_row": 28,
+      "description": "NRD 250x200",
+      "category": "BACK_DRAFT_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 250.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 25.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "9",
+      "source_row": 29,
+      "description": "VCD D150",
+      "category": "VOLUME_CONTROL_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 150.0,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 105.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "10",
+      "source_row": 30,
+      "description": "EAG 600x600",
+      "category": "SQUARE_DIFFUSER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 600.0,
+      "height": 600.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 2.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "11",
+      "source_row": 31,
+      "description": "FAG 600x600",
+      "category": "SUPPLY_DUCT",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 600.0,
+      "height": 600.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 1.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "12",
+      "source_row": 32,
+      "description": "EAL 400x200",
+      "category": "LOUVER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 400.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 1.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "13",
+      "source_row": 33,
+      "description": "EAL 250x250",
+      "category": "LOUVER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 250.0,
+      "height": 250.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 2.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "14",
+      "source_row": 34,
+      "description": "FAL 300x200",
+      "category": "LOUVER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 300.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 1.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "15",
+      "source_row": 35,
+      "description": "FAL 350x200",
+      "category": "LOUVER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 350.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 1.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "16",
+      "source_row": 36,
+      "description": "FAL 700x300",
+      "category": "LOUVER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 700.0,
+      "height": 300.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 1.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "17",
+      "source_row": 37,
+      "description": "VCD 300x200",
+      "category": "VOLUME_CONTROL_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": 300.0,
+      "height": 200.0,
+      "diameter": null,
+      "length": 1200.0,
+      "thickness": 0.6,
+      "material": "GI",
+      "quantity": 2.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    },
+    {
+      "item_no": "18",
+      "source_row": 38,
+      "description": "VCD D100",
+      "category": "VOLUME_CONTROL_DAMPER",
+      "product_code": "",
+      "matched_alias": "",
+      "width": null,
+      "height": null,
+      "diameter": 100.0,
+      "length": 1200.0,
+      "thickness": 0.5,
+      "material": "GI",
+      "quantity": 2.0,
+      "unit": "set",
+      "remark": "HỆ THỐNG THÔNG GIÓ",
+      "warnings": [
+        "Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+      ]
+    }
+  ],
+  "pricing_summary": {
+    "total_area": 1152.31,
+    "total_material": 0.0,
+    "total_labor": 0.0,
+    "total_accessory": 0.0,
+    "total_installation": 0.0,
+    "total_painting": 0.0,
+    "total_insulation": 0.0,
+    "total_waste": 0.0,
+    "items_subtotal": 0.0,
+    "transportation": 0.0,
+    "machinery": 0.0,
+    "management_fee": 0.0,
+    "risk_fee": 0.0,
+    "subtotal": 0.0,
+    "profit": 0.0,
+    "vat": 0.0,
+    "grand_total": 0.0,
+    "quote_memory_matched": 0,
+    "quote_memory_full_match": false,
+    "quote_memory_partial_match": false
+  },
+  "warning_count": 28,
+  "warnings": [
+    "Item #1 (SD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.; Thiếu kích thước rộng/cao hoặc đường kính.",
+    "Item #2 (SD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.; Thiếu kích thước rộng/cao hoặc đường kính.",
+    "Item #3 (SD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.; Thiếu kích thước rộng/cao hoặc đường kính.",
+    "Item #4 (SD-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #5 (SD-005): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #6 (SD-006): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #7 (SD-007): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #8 (PB-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #9 (SDD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #10 (SDD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #1 (SDD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #2 (SD-008): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #3 (SD-009): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #4 (SD-010): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #5 (SD-011): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.; Thiếu kích thước rộng/cao hoặc đường kính.",
+    "Item #6 (BDD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #7 (BDD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #8 (BDD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #9 (VCD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #10 (SDD-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #11 (SD-012): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #12 (LVR-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #13 (LVR-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #14 (LVR-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #15 (LVR-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #16 (LVR-005): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #17 (VCD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #18 (VCD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+  ],
+  "export_workbook": {
+    "sheets": [
+      "Mẫu - xây lắp",
+      "Sheet1"
+    ]
+  },
+  "export_preview": [
+    {
+      "sheet": "Mẫu - xây lắp",
+      "rows": 67,
+      "cols": 24,
+      "nonempty_first_70": 58,
+      "rows_20_45": [
+        {
+          "row": 21,
+          "vals": [
+            "STT",
+            "Tên vật tư, thiết bị",
+            "Vật liệu chế tạo ",
+            "Xuất Xứ ",
+            "Đơn vị",
+            "Khối lượng",
+            "Đơn giá ",
+            "Thành tiền ",
+            "Ghi chú",
+            null
+          ]
+        },
+        {
+          "row": 22,
+          "vals": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "Vật tư ",
+            "Vật tư",
+            null,
+            null
+          ]
+        },
+        {
+          "row": 23,
+          "vals": [
+            "1",
+            "Air duct 0.58mm tk\nỐng gió dày 0.58mm",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m2",
+            1560,
+            null,
+            null,
+            "HỆ THỐNG DHKK",
+            null
+          ]
+        },
+        {
+          "row": 24,
+          "vals": [
+            "2",
+            "Air duct 0.75mm tk\nỐng gió dày 0.75mm",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m2",
+            325,
+            null,
+            null,
+            "HỆ THỐNG DHKK",
+            null
+          ]
+        },
+        {
+          "row": 25,
+          "vals": [
+            "3",
+            "Ductwork insulation thick 25mm\nCách nhiệt ống gió dày 25mm",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m2",
+            388,
+            null,
+            null,
+            "HỆ THỐNG DHKK",
+            null
+          ]
+        },
+        {
+          "row": 26,
+          "vals": [
+            "4",
+            "Flexible air duct with insulation D200\nỐng gió mềm kèm cách nhiệt D200",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m",
+            240,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1000mm",
+            null
+          ]
+        },
+        {
+          "row": 27,
+          "vals": [
+            "5",
+            "Flexible air duct without insulation D100\nỐng gió mềm không cách nhiệt D100",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m",
+            8,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1000mm",
+            null
+          ]
+        },
+        {
+          "row": 28,
+          "vals": [
+            "6",
+            "Flexible air duct without insulation D150\nỐng gió mềm không cách nhiệt D150",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m",
+            532,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1000mm",
+            null
+          ]
+        },
+        {
+          "row": 29,
+          "vals": [
+            "7",
+            "Flexible air duct without insulation D200\nỐng gió mềm không cách nhiệt D200",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "m",
+            108,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1000mm",
+            null
+          ]
+        },
+        {
+          "row": 30,
+          "vals": [
+            "8",
+            "Supply and Return Air Plenum Box for Indoor Unit\nBox gió cấp và hồi dàn lạnh",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            18,
+            null,
+            null,
+            "Tam tinh L=200",
+            null
+          ]
+        },
+        {
+          "row": 31,
+          "vals": [
+            "9",
+            "Supply air grill with box 1200x150\nMiệng gió cấp kèm box 1200x150",
+            "Nhom son tinh dien",
+            "Kaiyo Viet Nam",
+            "set",
+            15,
+            null,
+            null,
+            "Kaiyo mã c: R/D=600, E=90°",
+            null
+          ]
+        },
+        {
+          "row": 32,
+          "vals": [
+            "10",
+            "Return air grill with box 1200x150\nMiệng gió hồi kèm box 1200x150",
+            "Nhom son tinh dien",
+            "Kaiyo Viet Nam",
+            "set",
+            15,
+            null,
+            null,
+            "Kaiyo mã c: R/D=600, E=90°",
+            null
+          ]
+        },
+        {
+          "row": 33,
+          "vals": [
+            "1",
+            "EAG 300x300",
+            "Nhom son tinh dien",
+            "Kaiyo Viet Nam",
+            "set",
+            210,
+            null,
+            null,
+            "Kaiyo mã c: R/D=150, E=90°",
+            null
+          ]
+        },
+        {
+          "row": 34,
+          "vals": [
+            "2",
+            "Ventcap D250",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            129,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1200mm",
+            null
+          ]
+        },
+        {
+          "row": 35,
+          "vals": [
+            "3",
+            "Insect screen/ LCCT 200x250",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            25,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1200mm",
+            null
+          ]
+        },
+        {
+          "row": 36,
+          "vals": [
+            "4",
+            "Insect screen/ LCCT 300x200",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            25,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1200mm",
+            null
+          ]
+        },
+        {
+          "row": 37,
+          "vals": [
+            "5",
+            "G4 Filter/ Lọc G4",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            53,
+            null,
+            null,
+            "HỆ THỐNG THÔNG GIÓ",
+            null
+          ]
+        },
+        {
+          "row": 38,
+          "vals": [
+            "6",
+            "NRD D150",
+            "Thep ma kem",
+            "Kaiyo Viet Nam",
+            "set",
+            126,
+            null,
+            null,
+            "L=200",
+            null
+          ]
+        },
+        {
+          "row": 39,
+          "vals": [
+            "7",
+            "NRD 200x200",
+            "Thep ma kem",
+            "Kaiyo Viet Nam",
+            "set",
+            29,
+            null,
+            null,
+            "L=200",
+            null
+          ]
+        },
+        {
+          "row": 40,
+          "vals": [
+            "8",
+            "NRD 250x200",
+            "Thep ma kem",
+            "Kaiyo Viet Nam",
+            "set",
+            25,
+            null,
+            null,
+            "L=200",
+            null
+          ]
+        },
+        {
+          "row": 41,
+          "vals": [
+            "9",
+            "VCD D150",
+            "Thep ma kem",
+            "Kaiyo Viet Nam",
+            "set",
+            105,
+            null,
+            null,
+            "L=200",
+            null
+          ]
+        },
+        {
+          "row": 42,
+          "vals": [
+            "10",
+            "EAG 600x600",
+            "Nhom son tinh dien",
+            "Kaiyo Viet Nam",
+            "set",
+            2,
+            null,
+            null,
+            "Kaiyo mã c: R/D=300, E=90°",
+            null
+          ]
+        },
+        {
+          "row": 43,
+          "vals": [
+            "11",
+            "FAG 600x600",
+            "Ton ma kem theo do day",
+            "Kaiyo Viet Nam",
+            "set",
+            1,
+            null,
+            null,
+            "Kaiyo mã t: L/H=1200mm",
+            null
+          ]
+        },
+        {
+          "row": 44,
+          "vals": [
+            "12",
+            "EAL 400x200",
+            "Nhom son tinh dien",
+            "Kaiyo Viet Nam",
+            "set",
+            1,
+            null,
+            null,
+            "Kaiyo mã c: R/D=200, E=90°",
+            null
+          ]
+        },
+        {
+          "row": 45,
+          "vals": [
+            "13",
+            "EAL 250x250",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "Kaiyo mã c: R/D=125, E=90°",
+            null
+          ]
+        }
+      ]
+    },
+    {
+      "sheet": "Sheet1",
+      "rows": 1,
+      "cols": 1,
+      "nonempty_first_70": 0,
+      "rows_20_45": []
+    }
+  ]
+}

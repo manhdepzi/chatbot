@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import unicodedata
 import json
@@ -149,6 +149,25 @@ def detect_headers(sheet, merged_lookup: Dict[tuple, Any], max_scan_rows: int = 
                     mapping[field] = idx + 1
                     score += 1
                     break
+
+        description_col = mapping.get("description")
+        if description_col:
+            description_header = values[description_col - 1]
+            product_header_col = next(
+                (
+                    idx + 1
+                    for idx, cell_value in enumerate(values)
+                    if any(
+                        token in cell_value
+                        for token in ["san pham", "ten san pham", "ten vat tu", "ten vat tu, thiet bi"]
+                    )
+                ),
+                None,
+            )
+            if product_header_col and "quy cach" in description_header:
+                mapping["description"] = product_header_col
+                if "material" not in mapping:
+                    mapping["material"] = description_col
 
         if "description" in mapping and "quantity" in mapping:
             score += 2
@@ -485,7 +504,7 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
     if round_match:
         dims["diameter"] = parse_number(round_match.group(1))
 
-    length_match = re.search(rf"(?:\b[lL]|len|length|dai)\s*=?\s*{number}", normalized)
+    length_match = re.search(rf"(?:(?<![a-z])l|len|length|dai)\s*=?\s*{number}", normalized)
     if length_match:
         dims["length"] = parse_number(length_match.group(1))
 
@@ -506,7 +525,7 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
     separator = r"[xX*×]"
 
     reducer_match = re.search(
-        rf"{number}\s*{separator}\s*{number}\s*[-/]\s*{number}\s*{separator}\s*{number}\s*[-/]\s*[lL]?\s*{number}",
+        rf"{number}\s*{separator}\s*{number}\s*[-/]\s*{number}\s*{separator}\s*{number}\s*(?:[-/]\s*)?[lL]\s*{number}",
         text,
         re.IGNORECASE,
     )
@@ -539,10 +558,12 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
         dims["height"] = parse_number(kt_2d.group(2))
 
     rect_3d = None if dims else re.search(rf"\b{number}\s*{separator}\s*{number}\s*{separator}\s*[lL]?\s*{number}(?:\s*mm)?", text)
-    if rect_3d:
-        dims["width"] = parse_number(rect_3d.group(1))
-        dims["height"] = parse_number(rect_3d.group(2))
-        dims["length"] = parse_number(rect_3d.group(3))
+    rect_l = None if dims or rect_3d else re.search(rf"\b{number}\s*{separator}\s*{number}\s*[lL]\s*{number}(?:\s*mm)?", text, re.IGNORECASE)
+    if rect_3d or rect_l:
+        match = rect_3d or rect_l
+        dims["width"] = parse_number(match.group(1))
+        dims["height"] = parse_number(match.group(2))
+        dims["length"] = parse_number(match.group(3))
     else:
         rect_2d = None if dims else re.search(rf"\b{number}\s*{separator}\s*{number}(?:\s*mm)?", text)
         if rect_2d:
@@ -558,7 +579,7 @@ def extract_dimensions_from_text(text: str) -> Dict[str, float]:
         dims["diameter"] = dims.get("diameter") or parse_number(round_length_match.group(1))
         dims["length"] = dims.get("length") or parse_number(round_length_match.group(2))
 
-    length_match = re.search(rf"(?:\b[lL]|len|length|dai)\s*=?\s*{number}", normalized)
+    length_match = re.search(rf"(?:(?<![a-z])l|len|length|dai)\s*=?\s*{number}", normalized)
     if length_match:
         dims["length"] = parse_number(length_match.group(1))
 
@@ -581,6 +602,8 @@ def infer_material(text: str, fallback: str = "GI") -> str:
     normalized = normalize_text(text)
     if any(keyword in normalized for keyword in ["inox", "stainless", "ss"]):
         return "SS"
+    if any(keyword in normalized for keyword in ["nhom", "aluminium", "aluminum"]):
+        return "AL"
     if any(keyword in normalized for keyword in ["thep den", "mild steel", "ms"]):
         return "MS"
     if any(keyword in normalized for keyword in ["ton", "ma kem", "galvanized", "z080", "z275"]):
@@ -606,7 +629,7 @@ def classify_product_category(description: str, name: str = "") -> str:
         print(f"Product alias classification skipped: {exc}")
 
     direct_rules = [
-        ("END_CAP", ["ong bit dau", "bit dau", "bit dau"]),
+        ("END_CAP", ["ong bit dau", "dau bit", "bit dau", "bit dau"]),
         ("PLENUM_BOX", ["hop gio", "hop plenum", "plenum"]),
         ("FLEXIBLE_DUCT", ["flexible air duct", "ong gio mem", "ong mem"]),
         ("INSULATION", ["ductwork insulation", "cach nhiet ong gio", "bao on ong gio", "cach nhiet"]),
@@ -623,7 +646,7 @@ def classify_product_category(description: str, name: str = "") -> str:
         ("BACK_DRAFT_DAMPER", ["nrd", "back draft", "van gio 1 chieu", "van 1 chieu", "van mot chieu"]),
         ("TRANSITION", ["vuong tron", "vuong/tron", "tron vuong", "con chuyen"]),
         ("REDUCER", ["con thu", "con giam", "giam cap", "reducer"]),
-        ("ELBOW", ["cut", "cut 45", "cut 90", "cút", "co 45", "co 90", "elbow"]),
+        ("ELBOW", ["cut", "cut 45", "cut 90", "cút", "chech", "chech 45", "co 45", "co 90", "elbow"]),
         ("TRANSITION", ["got giay", "noi chan", "chan re"]),
         ("TEE", ["tee", "te", "chac 3", "ba nga"]),
         ("CROSS", ["cross", "tu nga"]),
@@ -775,9 +798,13 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
     angle = row_data.get("angle") or dims.get("angle")
     material = infer_material(full_text, str(row_data.get("material_code") or "GI"))
     pressure_class = infer_pressure_class(full_text)
-    category = str(row_data.get("category") or "").strip() or (
-        str(product_match.get("category")) if product_match else classify_product_category(full_text)
-    )
+    desc_category = classify_product_category(desc)
+    matched_category = str(product_match.get("category")) if product_match else ""
+    if matched_category == "INSULATION" and desc_category not in {"", "UNKNOWN", "INSULATION"}:
+        matched_category = desc_category
+    category = str(row_data.get("category") or "").strip()
+    if not category:
+        category = desc_category if desc_category not in {"", "UNKNOWN"} else matched_category or classify_product_category(full_text)
 
     parse_llm_enabled = os.getenv("ENABLE_PARSE_LLM", "0" if os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"} else "1")
     if category == "UNKNOWN" and parse_llm_enabled.strip().lower() in {"1", "true", "yes", "on"}:
@@ -817,6 +844,9 @@ def _build_takeoff_item(row_data: Dict[str, Any], source_row: int | None = None)
         "angle": parse_number(angle),
         "thickness": parse_number(thickness),
         "material": material,
+        "source_material_spec": material_spec,
+        "quote_material_spec": material_spec,
+        "material_spec_source": "file" if material_spec else "unresolved",
         "pressure_class": pressure_class,
         "quantity": quantity,
         "unit": unit or "pcs",
@@ -995,6 +1025,7 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
         return parse_customer_sheet(file_path)
 
     reference_columns = _detect_reference_columns(sheet, header_row)
+    formula_helpers = _collect_reference_formula_helpers(workbook)
     description_col = reference_columns.get("description", 2)
     quantity_col = reference_columns.get("quantity", 6)
     unit_price_col = reference_columns.get("unit_price", 7)
@@ -1036,8 +1067,18 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
         accessory_area = parse_number(sheet.cell(row=row, column=25).value)
         accessory_unit_price = parse_number(sheet.cell(row=row, column=26).value)
         dims = extract_dimensions_from_text(desc)
-        width = width or dims.get("width")
-        height = height or dims.get("height")
+        helper_formula = formula_helpers.get(normalized_desc, {})
+        helper_code = str(helper_formula.get("quote_code") or "").strip()
+        width = helper_formula.get("formula_width") or width or dims.get("width")
+        height = helper_formula.get("formula_height") or height or dims.get("height")
+        formula_width2 = helper_formula.get("formula_width2") if helper_formula.get("formula_width2") is not None else formula_width2
+        formula_height2 = helper_formula.get("formula_height2") if helper_formula.get("formula_height2") is not None else formula_height2
+        formula_width3 = helper_formula.get("formula_width3") if helper_formula.get("formula_width3") is not None else formula_width3
+        formula_height3 = helper_formula.get("formula_height3") if helper_formula.get("formula_height3") is not None else formula_height3
+        formula_length = helper_formula.get("formula_length") if helper_formula.get("formula_length") is not None else formula_length
+        formula_radius = helper_formula.get("formula_radius") if helper_formula.get("formula_radius") is not None else formula_radius
+        formula_angle = helper_formula.get("formula_angle") if helper_formula.get("formula_angle") is not None else formula_angle
+        formula_area = helper_formula.get("formula_area") if helper_formula.get("formula_area") is not None else formula_area
         category = classify_product_category(desc)
         product_match = None
         try:
@@ -1052,7 +1093,7 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
 
         items.append({
             "item_no": str(sheet.cell(row=row, column=item_no_col).value or "").strip(),
-            "code": str(sheet.cell(row=row, column=code_col).value or "").strip(),
+            "code": helper_code or str(sheet.cell(row=row, column=code_col).value or "").strip(),
             "mark": "",
             "description": desc,
             "name": desc,
@@ -1065,7 +1106,7 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
             "width": width,
             "height": height,
             "diameter": dims.get("diameter"),
-            "length": dims.get("length", 1200.0),
+            "length": formula_length or dims.get("length", 1200.0),
             "thickness": dims.get("thickness"),
             "material": infer_material(material_spec or desc, "GI"),
             "pressure_class": infer_pressure_class(material_spec or desc),
@@ -1076,7 +1117,7 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
             "reference_line_total": line_total,
             "quote_material_spec": material_spec,
             "quote_brand": str(sheet.cell(row=row, column=brand_col).value or "").strip(),
-            "quote_code": str(sheet.cell(row=row, column=code_col).value or "").strip(),
+            "quote_code": helper_code or str(sheet.cell(row=row, column=code_col).value or "").strip(),
             "quote_output_quantity": qty,
             "quote_output_unit": str(sheet.cell(row=row, column=unit_col).value or "").strip(),
             "quote_output_unit_price": unit_price,
@@ -1099,6 +1140,79 @@ def parse_reference_quote(file_path: str) -> List[Dict[str, Any]]:
 
     workbook.close()
     return items
+
+
+def _collect_reference_formula_helpers(workbook) -> Dict[str, Dict[str, Any]]:
+    helpers: Dict[str, Dict[str, Any]] = {}
+    formula_aliases = {
+        "quote_code": ["ma sp", "ma cong thuc", "code"],
+        "formula_width": ["w1", "rong", "width"],
+        "formula_height": ["h1", "cao", "height"],
+        "formula_width2": ["w2"],
+        "formula_height2": ["h2"],
+        "formula_width3": ["w3"],
+        "formula_height3": ["h3"],
+        "formula_length": ["l/h", "l h", "dai", "length"],
+        "formula_radius": ["r/d", "r d", "ban kinh", "duong kinh"],
+        "formula_angle": [" e", "goc", "angle"],
+        "formula_area": ["dien tich", "area"],
+    }
+
+    for sheet in workbook.worksheets:
+        formula_header_row = None
+        formula_cols: Dict[str, int] = {}
+        for row in range(1, min(sheet.max_row, 80) + 1):
+            row_text = " ".join(normalize_text(sheet.cell(row=row, column=col).value) for col in range(1, sheet.max_column + 1))
+            if "ma sp" not in row_text or not any(token in row_text for token in ["w1", "h1", "dien tich"]):
+                continue
+            for col in range(1, sheet.max_column + 1):
+                value = " " + normalize_text(sheet.cell(row=row, column=col).value) + " "
+                compact_value = value.strip()
+                for field, aliases in formula_aliases.items():
+                    if field in formula_cols:
+                        continue
+                    if any(alias in value or compact_value == alias.strip() for alias in aliases):
+                        formula_cols[field] = col
+            if formula_cols.get("quote_code") and (formula_cols.get("formula_width") or formula_cols.get("formula_area")):
+                formula_header_row = row
+                break
+
+        if not formula_header_row:
+            continue
+
+        product_header_row = None
+        product_cols: Dict[str, int] = {}
+        for row in range(formula_header_row, min(sheet.max_row, formula_header_row + 4) + 1):
+            cols = _detect_reference_columns(sheet, row)
+            if cols.get("description"):
+                product_header_row = row
+                product_cols = cols
+                break
+        if not product_header_row:
+            continue
+
+        description_col = product_cols.get("description")
+        quantity_col = product_cols.get("quantity")
+        unit_col = product_cols.get("unit")
+        for row in range(product_header_row + 1, sheet.max_row + 1):
+            desc = str(sheet.cell(row=row, column=description_col).value or "").strip()
+            if not desc or _is_non_product_description(normalize_text(desc)):
+                continue
+            key = normalize_text(desc)
+            helper: Dict[str, Any] = {}
+            for field, col in formula_cols.items():
+                value = sheet.cell(row=row, column=col).value
+                if field == "quote_code":
+                    helper[field] = str(value or "").strip()
+                else:
+                    helper[field] = parse_number(value)
+            if quantity_col:
+                helper["quantity"] = parse_number(sheet.cell(row=row, column=quantity_col).value)
+            if unit_col:
+                helper["unit"] = str(sheet.cell(row=row, column=unit_col).value or "").strip()
+            if helper.get("quote_code") or any(helper.get(field) is not None for field in formula_cols if field != "quote_code"):
+                helpers[key] = helper
+    return helpers
 
 
 def _parse_reference_quote_xls(file_path: str) -> List[Dict[str, Any]]:
@@ -1172,6 +1286,8 @@ def _detect_reference_columns_frame(frame: pd.DataFrame, header_row: int) -> Dic
             mapping.setdefault("material", col)
         if (
             "ten vat tu" in merged_value
+            or "san pham" in merged_value
+            or "ten san pham" in merged_value
             or "mo ta chi tiet" in merged_value
             or merged_value == "mo ta"
             or "noi dung" in merged_value
@@ -1273,7 +1389,7 @@ def _reference_items_from_frame(frame: pd.DataFrame, header_row: int, columns: D
             "width": dims.get("width"),
             "height": dims.get("height"),
             "diameter": dims.get("diameter"),
-            "length": dims.get("length", 1200.0),
+            "length": formula_length or dims.get("length", 1200.0),
             "thickness": dims.get("thickness"),
             "material": infer_material(material_spec or desc, "GI"),
             "pressure_class": infer_pressure_class(material_spec or desc),
@@ -1376,6 +1492,8 @@ def _detect_reference_columns(sheet, header_row: int) -> Dict[str, int]:
             mapping.setdefault("material", col)
         if (
             "ten vat tu" in merged_value
+            or "san pham" in merged_value
+            or "ten san pham" in merged_value
             or "mo ta chi tiet" in merged_value
             or merged_value == "mo ta"
             or "noi dung" in merged_value
@@ -1430,6 +1548,120 @@ def assign_marks(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return items
 
 
+
+def _material_tokens(value: Any) -> set[str]:
+    return {token for token in normalize_text(str(value or "")).split() if len(token) > 1}
+
+
+def _same_measurement(left: Any, right: Any, tolerance: float = 1.0) -> bool:
+    left_number = parse_number(left)
+    right_number = parse_number(right)
+    return left_number is not None and right_number is not None and abs(left_number - right_number) <= tolerance
+
+
+def _material_spec_is_specific(value: Any) -> bool:
+    normalized = normalize_text(str(value or ""))
+    if not normalized:
+        return False
+    return normalized not in {"gi", "ss", "ms", "al", "ton ma kem", "inox", "thep den", "nhom"}
+
+
+def _material_memory_score(item: Dict[str, Any], candidate: Dict[str, Any]) -> float:
+    if item.get("category") != candidate.get("category"):
+        return -1.0
+
+    score = 45.0
+    if item.get("product_code") and item.get("product_code") == candidate.get("product_code"):
+        score += 35.0
+    if item.get("material") and item.get("material") == candidate.get("material"):
+        score += 12.0
+    if item.get("thickness") and _same_measurement(item.get("thickness"), candidate.get("thickness"), 0.02):
+        score += 18.0
+
+    for key in ("width", "height", "diameter", "length"):
+        if item.get(key) and candidate.get(key) and _same_measurement(item.get(key), candidate.get(key)):
+            score += 6.0
+
+    pressure_class = str(item.get("pressure_class") or "")
+    candidate_text = " ".join(str(candidate.get(key) or "") for key in ("quote_material_spec", "quote_note", "normalized_description"))
+    if pressure_class and normalize_text(pressure_class) in normalize_text(candidate_text):
+        score += 15.0
+
+    item_tokens = _material_tokens(" ".join(str(item.get(key) or "") for key in ("description", "remark")))
+    candidate_tokens = _material_tokens(candidate_text)
+    if item_tokens and candidate_tokens:
+        score += 20.0 * len(item_tokens & candidate_tokens) / max(1, len(item_tokens | candidate_tokens))
+    return score
+
+
+def resolve_material_specifications(
+    items: List[Dict[str, Any]],
+    memory_rows: Optional[List[Dict[str, Any]]] = None,
+    product_rules: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Resolve a full manufacturing specification without silently inventing one."""
+    if memory_rows is None:
+        memory_rows = []
+        if supabase_store.enabled():
+            try:
+                memory_rows = supabase_store.get_approved_material_memory()
+            except Exception as exc:
+                if _supabase_strict_enabled():
+                    raise
+                print(f"Supabase material memory unavailable: {exc}")
+    if product_rules is None:
+        product_rules = {}
+        if supabase_store.enabled():
+            try:
+                product_rules = supabase_store.get_product_pricing_rules()
+            except Exception as exc:
+                if _supabase_strict_enabled():
+                    raise
+                print(f"Supabase product rules unavailable: {exc}")
+
+    for item in items:
+        source_spec = str(item.get("source_material_spec") or item.get("quote_material_spec") or "").strip()
+        if _material_spec_is_specific(source_spec):
+            item["quote_material_spec"] = source_spec
+            item["material_spec_source"] = "file"
+            item["material_spec_confidence"] = 100
+            continue
+
+        ranked = sorted(
+            ((_material_memory_score(item, candidate), candidate) for candidate in memory_rows
+             if _material_spec_is_specific(candidate.get("quote_material_spec"))),
+            key=lambda pair: pair[0],
+            reverse=True,
+        )
+        best_score, best = ranked[0] if ranked else (-1.0, None)
+        second_score, second = ranked[1] if len(ranked) > 1 else (-1.0, None)
+        best_spec = str((best or {}).get("quote_material_spec") or "").strip()
+        second_spec = str((second or {}).get("quote_material_spec") or "").strip()
+        unambiguous = best_score >= 70 and (second_score < best_score - 6 or best_spec == second_spec)
+
+        if unambiguous:
+            item["quote_material_spec"] = best_spec
+            item["material_spec_source"] = "supabase_memory"
+            item["material_spec_confidence"] = round(min(100.0, best_score), 1)
+            item["material_spec_reference"] = best.get("source_file", "")
+            continue
+
+        rule = product_rules.get(str(item.get("category") or ""), {})
+        rule_spec = str(rule.get("material_spec") or "").strip()
+        if _material_spec_is_specific(rule_spec):
+            item["quote_material_spec"] = rule_spec
+            item["material_spec_source"] = "approved_rule"
+            item["material_spec_confidence"] = 95
+            continue
+
+        item["quote_material_spec"] = ""
+        item["material_spec_source"] = "needs_confirmation"
+        item["material_spec_confidence"] = 0
+        item.setdefault("warnings", []).append(
+            "Chưa xác nhận được vật liệu chế tạo đầy đủ (loại vật liệu/cấu tạo/độ dày). Sales/QS cần chọn mẫu vật liệu đã duyệt trước khi xuất."
+        )
+    return items
+
 def apply_thickness_rules(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if supabase_store.enabled():
         try:
@@ -1467,7 +1699,11 @@ def apply_thickness_rules(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         item["thickness"] = matched_thickness or (0.6 if material == "GI" else 0.8)
 
-    return items
+    return resolve_material_specifications(items)
+
+
+
+
 
 
 

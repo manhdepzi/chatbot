@@ -1344,11 +1344,48 @@ def get_product_pricing_rules() -> Dict[str, Dict[str, Any]]:
                    ppr.notes as note, 'Supabase' as source
             from public.product_pricing_rules ppr
             join public.product_categories pc on pc.id = ppr.category_id
-            where ppr.company_id = %s and ppr.approval_status in ('approved', 'draft')
+            where ppr.company_id = %s and ppr.approval_status = 'approved'
             """,
             (cid,),
         ).fetchall()
     return {row["category"]: dict(row) for row in rows}
+
+
+def get_approved_material_memory() -> List[Dict[str, Any]]:
+    """Return manufacturing specifications from approved completed quotations only."""
+    with connect() as conn:
+        cid = company_id(conn)
+        rows = conn.execute(
+            """
+            select pc.key as category,
+                   qmi.normalized_description,
+                   qmi.width_mm as width,
+                   qmi.height_mm as height,
+                   qmi.diameter_mm as diameter,
+                   qmi.length_mm as length,
+                   qmi.thickness_mm as thickness,
+                   m.code as material,
+                   qmi.material_spec as quote_material_spec,
+                   qmi.note as quote_note,
+                   qms.source_file_name as source_file
+            from public.quote_memory_items qmi
+            join public.quote_memory_sources qms on qms.id = qmi.source_id
+            left join public.product_categories pc on pc.id = qmi.category_id
+            left join public.materials m on m.id = qmi.material_id
+            where qmi.company_id = %s
+              and qmi.approval_status = 'approved'
+              and nullif(trim(qmi.material_spec), '') is not null
+            order by qmi.created_at desc
+            """,
+            (cid,),
+        ).fetchall()
+
+    learned_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        data = dict(row)
+        _decode_memory_formula(data)
+        learned_rows.append(data)
+    return learned_rows
 
 
 def train_quote_memory(

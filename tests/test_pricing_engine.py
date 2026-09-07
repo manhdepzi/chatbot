@@ -195,6 +195,32 @@ def test_mfd_fd_prd_price_formulas_from_big_valve_file():
     assert prd["quote_unit_price"] == 712000
 
 
+def test_end_cap_uses_kaiyo_tb_formula_in_product_only_mode(monkeypatch):
+    monkeypatch.setenv("PRODUCT_ONLY_MODE", "1")
+    result = calculate_item_cost(
+        {
+            "category": "END_CAP",
+            "description": "Dau bit ton ma kem 1800x500L100mm",
+            "width": 1800,
+            "height": 500,
+            "length": 100,
+            "quantity": 2,
+            "unit": "cai",
+            "material": "GI",
+            "thickness": 0.75,
+            "warnings": [],
+        },
+        {"vat_pct": {"value": 0, "type": "percentage"}, "profit_pct": {"value": 0, "type": "percentage"}},
+        {},
+        {},
+    )
+
+    assert result["quote_code"] == "tb"
+    assert result["formula_area"] == 1.36
+    assert result["calculated_area"] == 2.72
+    assert result["grand_total"] == 0.0
+
+
 def test_kaiyo_t_multiplier_rules():
     assert _kaiyo_quote_area_multiplier(
         {"category": "SUPPLY_DUCT", "description": "Lắp đặt ống thông gió thường KT 500x400"},

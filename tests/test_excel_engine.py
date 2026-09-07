@@ -118,3 +118,58 @@ def test_kaiyo_template_mapping_does_not_require_sheet_name():
     assert quote["F24"].value == 3
     assert quote["G24"].value == 100000
     assert quote["H24"].value == 300000
+
+
+def test_kaiyo_template_keeps_area_formula_for_end_cap(monkeypatch):
+    monkeypatch.setenv("PRODUCT_ONLY_MODE", "1")
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "bao gia"
+    sheet["A21"] = "STT"
+    sheet["B21"] = "Ten vat tu, thiet bi"
+    sheet["C21"] = "Vat lieu che tao"
+    sheet["D21"] = "Xuat Xu"
+    sheet["E21"] = "Don vi"
+    sheet["F21"] = "Khoi luong"
+    sheet["G21"] = "Don gia"
+    sheet["H21"] = "Thanh tien"
+    sheet["I21"] = "Ghi chu"
+    sheet["K20"] = "Ten vat tu, thiet bi"
+    sheet["L21"] = "Ma SP"
+    sheet["M21"] = "W1"
+    sheet["N21"] = "H1"
+    sheet["S21"] = "L/H"
+    sheet["V21"] = "DIEN TICH/Cai"
+
+    template = BytesIO()
+    workbook.save(template)
+
+    output = build_quotation_workbook(
+        [
+            {
+                "item_no": "1",
+                "description": "Dau bit ton ma kem 1800x500L100mm",
+                "category": "END_CAP",
+                "quote_code": "tb",
+                "formula_width": 1800,
+                "formula_height": 500,
+                "formula_length": 100,
+                "formula_area": 0.46,
+                "quantity": 2,
+                "unit": "cai",
+            }
+        ],
+        {"total_area": 2.72, "items_subtotal": 0, "vat": 0, "grand_total": 0},
+        template_bytes=template.getvalue(),
+    )
+
+    result = load_workbook(BytesIO(output), data_only=False)
+    quote = result["bao gia"]
+    assert quote["L24"].value == "tb"
+    assert quote["M24"].value == 1800
+    assert quote["N24"].value == 500
+    assert quote["S24"].value == 100
+    assert isinstance(quote["V24"].value, str)
+    assert quote["V24"].value.startswith("=IF(")
+    assert 'L24="tb"' in quote["V24"].value
+    assert "M24*N24" in quote["V24"].value

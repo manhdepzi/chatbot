@@ -71,6 +71,22 @@ def _product_only_mode() -> bool:
     return os.getenv("PRODUCT_ONLY_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
+FIXED_QUOTATION_TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "kaiyo_quotation_template.xlsx"
+
+
+@st.cache_data(show_spinner=False)
+def _fixed_quotation_template() -> tuple[bytes, str]:
+    if not FIXED_QUOTATION_TEMPLATE_PATH.is_file():
+        raise FileNotFoundError(f"Khong tim thay mau bao gia co dinh: {FIXED_QUOTATION_TEMPLATE_PATH}")
+    return FIXED_QUOTATION_TEMPLATE_PATH.read_bytes(), FIXED_QUOTATION_TEMPLATE_PATH.name
+
+
+def _use_fixed_quotation_template() -> str:
+    template_bytes, template_name = _fixed_quotation_template()
+    st.session_state.template_bytes = template_bytes
+    st.session_state.template_name = template_name
+    return template_name
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _cached_company_settings() -> Dict[str, str]:
     return get_company_settings()
@@ -943,7 +959,7 @@ def _build_sales_checklist(
         if qty <= 0:
             add_issue("quantity", "Bắt buộc", line_label, "Số lượng không hợp lệ", f"{desc} | Số lượng: {qty:g}")
 
-        if source not in trusted_sources:
+        if not _product_only_mode() and source not in trusted_sources:
             if item.get("pricing_mode") != "piece" or float(item.get("quote_unit_price") or 0) <= 0:
                 key = (item.get("material", "GI"), float(item.get("thickness") or 0))
                 if price_overrides.get(key, 0) <= 0:
@@ -955,7 +971,7 @@ def _build_sales_checklist(
                         f"{desc} | {key[0]} {key[1]:g} mm",
                     )
 
-        if price_source_status == "closest_thickness":
+        if not _product_only_mode() and price_source_status == "closest_thickness":
             add_issue(
                 "closest_thickness",
                 "Bắt buộc",
@@ -1244,16 +1260,12 @@ with st.sidebar:
     st.session_state.project = project
 
     material_file = st.file_uploader("File khối lượng khách gửi", type=["xlsx", "xls", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"])
-    template_file = st.file_uploader("Mẫu báo giá Excel", type=["xlsx", "xls"])
-    if template_file:
-        template_name = template_file.name
-        if template_name.lower().endswith(".xls") and not template_name.lower().endswith(".xlsx"):
-            st.session_state.template_bytes = None
-            st.session_state.template_name = ""
-            st.warning("Mẫu báo giá dạng .xls chưa thể giữ nguyên form khi xuất. Hãy lưu mẫu sang .xlsx rồi tải lại.")
-        else:
-            st.session_state.template_bytes = template_file.getvalue()
-            st.session_state.template_name = template_name
+    try:
+        fixed_template_name = _use_fixed_quotation_template()
+        st.caption(f"Mẫu báo giá cố định: {fixed_template_name}")
+    except FileNotFoundError as exc:
+        st.error(str(exc))
+        fixed_template_name = ""
     material_file_looks_like_quote = bool(material_file and _looks_like_completed_quote_file(material_file.name))
     if material_file_looks_like_quote:
         st.warning(
@@ -1291,11 +1303,19 @@ with st.sidebar:
                 st.stop()
             if not _product_only_mode():
                 _upload_to_storage(material_file, "customer_takeoff")
-                if template_file:
-                    _upload_to_storage(template_file, "quote_template")
             st.session_state["takeoff_items"] = _parse_uploaded(material_file)
             st.session_state.file_name = material_file.name
             st.session_state.manual_unit_prices = {}
+            for key in [
+                "calculated_items",
+                "summary",
+                "warnings",
+                "readiness",
+                "reference_messages",
+                "sales_checklist_state",
+                "sales_checklist_unresolved",
+            ]:
+                st.session_state.pop(key, None)
             st.success(f"Đã đọc {len(st.session_state['takeoff_items'])} dòng sản phẩm.")
         except Exception as exc:
             st.error(f"Không thể đọc file: {type(exc).__name__}: {exc}")
@@ -1431,9 +1451,9 @@ with tab_est:
             float(settings_for_vat.get("default_vat_pct", "0.10") or 0.10),
         )
         reference_messages = reference_messages + reconcile_messages
-    if not summary.get("quote_memory_matched") and not manual_prices and not st.session_state.get("reference_quote_items"):
+    if not _product_only_mode() and not summary.get("quote_memory_matched") and not manual_prices and not st.session_state.get("reference_quote_items"):
         warnings.append("Chưa có đơn giá bán chuẩn cho file mới. Hãy nhập đơn giá theo từng dòng hoặc cho AI học từ báo giá đã hoàn thành.")
-    warnings = _missing_price_messages(calculated_items, price_overrides) + warnings
+    warnings = [] if _product_only_mode() else _missing_price_messages(calculated_items, price_overrides) + warnings
     settings = _cached_company_settings()
     readiness = evaluate_quote_readiness(calculated_items, summary, warnings, price_overrides, settings)
     st.session_state.calculated_items = calculated_items

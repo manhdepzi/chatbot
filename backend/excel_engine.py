@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import math
+import re
+from zipfile import ZipFile
 from io import BytesIO
 from copy import copy
 from typing import Any, Dict, List, Optional
@@ -107,6 +110,131 @@ def _summary_columns() -> List[tuple[str, str]]:
     return PRODUCT_SUMMARY_COLUMNS if _product_only_export() else SUMMARY_COLUMNS
 
 
+def _configure_formula_calculation(workbook: Workbook) -> None:
+    """Make Excel/WPS recalculate all exported area formulas on open and save."""
+    calculation = workbook.calculation
+    calculation.calcMode = "auto"
+    calculation.fullCalcOnLoad = True
+    calculation.forceFullCalc = True
+    calculation.calcOnSave = True
+
+def _sheet_number(sheet, row: int, column: int) -> Optional[float]:
+    value = sheet.cell(row=row, column=column).value
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _kaiyo_area_cache_value(sheet, row: int) -> Optional[float]:
+    code = str(sheet.cell(row=row, column=12).value or "").strip().lower()
+    width = _sheet_number(sheet, row, 13)
+    height = _sheet_number(sheet, row, 14)
+    width2 = _sheet_number(sheet, row, 15)
+    height2 = _sheet_number(sheet, row, 16)
+    width3 = _sheet_number(sheet, row, 17)
+    height3 = _sheet_number(sheet, row, 18)
+    length = _sheet_number(sheet, row, 19)
+    radius = _sheet_number(sheet, row, 20)
+    angle = _sheet_number(sheet, row, 21)
+
+    try:
+        if code in {"t", "ta"} and None not in (width, height, length):
+            area = (width + height) * 2 * length
+        elif code in {"f", "m"} and None not in (width, height):
+            area = width * height
+        elif code == "d" and None not in (width, height, length, angle):
+            area = (width + height + angle / 2) * 2 * length
+        elif code == "tb" and None not in (width, height, length):
+            area = (width + height) * 2 * length + width * height
+        elif code in {"g", "n"} and None not in (width, height, width2, height2, length):
+            area = (
+                (width + width2) * math.sqrt(length**2 + ((height - height2) / 2) ** 2)
+                + (height + height2) * math.sqrt(length**2 + ((width - width2) / 2) ** 2)
+            )
+        elif code.startswith("c") and None not in (width, height, radius, angle):
+            area = 2 * (
+                math.pi * ((width + radius) ** 2 - radius**2)
+                + height * (math.pi * (width + radius) + math.pi * radius)
+            ) * (angle / 360)
+        elif code.startswith("vt") and None not in (width, height, width2, height2, length, radius):
+            area = (
+                (width + width2) * math.sqrt(length**2 + ((height - height2) / 2) ** 2)
+                + (height + height2) * math.sqrt(length**2 + ((width - width2) / 2) ** 2)
+                + (radius + 200) ** 2 - (radius / 2) ** 2 * 3.14
+            )
+        elif code == "tt" and None not in (width, height, width2, height2, width3, height3, length):
+            area = (
+                2 * (width + height) * (length - 1.5 * width2)
+                + (math.pi * (3 * width2 + 2 / 3 * width) * (width2 + 2 / 3 * width + height2 + height)
+                   - (height2 + height) * (math.pi * 1.5 * width2)) / 8
+                + (math.pi * (3 * width3 + 2 / 3 * width) * (width3 + 2 / 3 * width + height3 + height)
+                   - (height3 + height) * (math.pi * 1.5 * width3)) / 8
+            )
+        else:
+            return None
+    except (ArithmeticError, TypeError, ValueError):
+        return None
+    return round(area / 1_000_000, 6)
+
+
+def _area_formula_cache(workbook: Workbook) -> Dict[str, Dict[str, float]]:
+    cache: Dict[str, Dict[str, float]] = {}
+    for fallback_id, sheet in enumerate(workbook.worksheets, start=1):
+        sheet_id = getattr(sheet, "_id", None) or fallback_id
+        values: Dict[str, float] = {}
+        for row in range(1, sheet.max_row + 1):
+            cell = sheet.cell(row=row, column=22)
+            if cell.data_type != "f":
+                continue
+            area = _kaiyo_area_cache_value(sheet, row)
+            if area is not None and math.isfinite(area):
+                values[f"V{row}"] = area
+        if values:
+            cache[f"xl/worksheets/sheet{sheet_id}.xml"] = values
+    return cache
+
+
+def _inject_formula_cache(workbook_bytes: bytes, cache: Dict[str, Dict[str, float]]) -> bytes:
+    if not cache:
+        return workbook_bytes
+    source_buffer = BytesIO(workbook_bytes)
+    output = BytesIO()
+    with ZipFile(source_buffer, "r") as source, ZipFile(output, "w") as target:
+        for info in source.infolist():
+            payload = source.read(info.filename)
+            values = cache.get(info.filename)
+            if values:
+                xml = payload.decode("utf-8")
+                for coordinate, value in values.items():
+                    numeric = format(value, ".10g")
+                    pattern = re.compile(rf'(<c\b(?=[^>]*\br="{re.escape(coordinate)}")[^>]*>.*?</c>)', re.DOTALL)
+
+                    def replace_cell(match):
+                        cell_xml = match.group(1)
+                        if "<f" not in cell_xml:
+                            return cell_xml
+                        if re.search(r"<v(?:\s[^>]*)?\s*/>", cell_xml):
+                            return re.sub(r"<v(?:\s[^>]*)?\s*/>", f"<v>{numeric}</v>", cell_xml, count=1)
+                        if re.search(r"<v(?:\s[^>]*)?>.*?</v>", cell_xml, flags=re.DOTALL):
+                            return re.sub(r"<v(?:\s[^>]*)?>.*?</v>", f"<v>{numeric}</v>", cell_xml, count=1, flags=re.DOTALL)
+                        return cell_xml.replace("</f>", f"</f><v>{numeric}</v>", 1)
+
+                    xml = pattern.sub(replace_cell, xml, count=1)
+                payload = xml.encode("utf-8")
+            target.writestr(info, payload)
+    return output.getvalue()
+
+
+def _save_workbook_with_area_cache(workbook: Workbook) -> bytes:
+    _configure_formula_calculation(workbook)
+    cache = _area_formula_cache(workbook)
+    output = BytesIO()
+    workbook.save(output)
+    return _inject_formula_cache(output.getvalue(), cache)
+
 def build_quotation_workbook(
     items: List[Dict[str, Any]],
     summary: Dict[str, float],
@@ -125,9 +253,7 @@ def build_quotation_workbook(
         _remove_sheet_if_exists(workbook, "Dữ liệu báo giá AI")
         _fill_placeholders(workbook, summary)
         if _try_write_kaiyo_quote(workbook, items, summary, project=project, customer=customer):
-            output = BytesIO()
-            workbook.save(output)
-            return output.getvalue()
+            return _save_workbook_with_area_cache(workbook)
         sheet = _replace_sheet(workbook, "Dữ liệu báo giá AI")
     else:
         workbook = Workbook()
@@ -136,9 +262,7 @@ def build_quotation_workbook(
 
     _write_items_sheet(sheet, items, summary)
 
-    output = BytesIO()
-    workbook.save(output)
-    return output.getvalue()
+    return _save_workbook_with_area_cache(workbook)
 
 
 def _try_write_kaiyo_quote(
@@ -228,7 +352,7 @@ def _try_write_kaiyo_quote_sheet(
             "S": item.get("formula_length") or item.get("length"),
             "T": item.get("formula_radius") or item.get("radius") or item.get("diameter"),
             "U": item.get("formula_angle") or item.get("angle"),
-            "V": item.get("formula_area") or _area_per_item(item, qty),
+            "V": _kaiyo_area_formula(row, item) or item.get("formula_area") or _area_per_item(item, qty),
             "W": _export_money(item.get("formula_unit_price") or item.get("quote_unit_price")),
             "X": _export_money(item.get("area_multiplier")),
             "Y": item.get("accessory_area") or item.get("flange_price"),
@@ -237,20 +361,21 @@ def _try_write_kaiyo_quote_sheet(
         }
         for col, value in values.items():
             _safe_set_cell(sheet, f"{col}{row}", value)
+        _set_area_number_format(sheet, row)
 
     total_row = data_start + len(items)
-    sheet[f"B{total_row}"] = "TỔNG CỘNG"
-    sheet[f"H{total_row}"] = _export_money(summary.get("items_subtotal", summary.get("subtotal", 0)))
-    sheet[f"G{total_row}"] = ""
-    sheet[f"F{total_row}"] = ""
+    _safe_set_cell(sheet, f"B{total_row}", "TỔNG CỘNG")
+    _safe_set_cell(sheet, f"H{total_row}", _export_money(summary.get("items_subtotal", summary.get("subtotal", 0))))
+    _safe_set_cell(sheet, f"G{total_row}", "")
+    _safe_set_cell(sheet, f"F{total_row}", "")
 
     vat_row = total_row + 1
-    sheet[f"B{vat_row}"] = "VAT"
-    sheet[f"H{vat_row}"] = _export_money(summary.get("vat", 0))
+    _safe_set_cell(sheet, f"B{vat_row}", "VAT")
+    _safe_set_cell(sheet, f"H{vat_row}", _export_money(summary.get("vat", 0)))
 
     grand_row = total_row + 2
-    sheet[f"B{grand_row}"] = "TỔNG THANH TOÁN"
-    sheet[f"H{grand_row}"] = _export_money(summary.get("grand_total", 0))
+    _safe_set_cell(sheet, f"B{grand_row}", "TỔNG THANH TOÁN")
+    _safe_set_cell(sheet, f"H{grand_row}", _export_money(summary.get("grand_total", 0)))
 
     sheet.freeze_panes = f"A{data_start}"
     return True
@@ -319,7 +444,7 @@ def _write_kaiyo_item_row(sheet, row: int, item: Dict[str, Any], fallback_item_n
         "S": item.get("formula_length") or item.get("length"),
         "T": item.get("formula_radius") or item.get("radius") or item.get("diameter"),
         "U": item.get("formula_angle") or item.get("angle"),
-        "V": item.get("formula_area") or _area_per_item(item, float(item.get("quantity") or 0)),
+        "V": _kaiyo_area_formula(row, item) or item.get("formula_area") or _area_per_item(item, float(item.get("quantity") or 0)),
         "W": _export_money(item.get("formula_unit_price") or item.get("quote_output_unit_price") or item.get("quote_unit_price")),
         "X": _export_money(item.get("area_multiplier")),
         "Y": item.get("accessory_area") or item.get("flange_price"),
@@ -328,6 +453,29 @@ def _write_kaiyo_item_row(sheet, row: int, item: Dict[str, Any], fallback_item_n
     }
     for col, value in values.items():
         _safe_set_cell(sheet, f"{col}{row}", value)
+    _set_area_number_format(sheet, row)
+
+
+def _set_area_number_format(sheet, row: int) -> None:
+    """Keep the per-item area column numeric instead of inheriting VND formatting."""
+    cell = sheet[f"V{row}"]
+    if not isinstance(cell, MergedCell):
+        cell.number_format = "0.00"
+
+def _kaiyo_area_formula(row: int, item: Dict[str, Any]) -> Optional[str]:
+    code = item.get("quote_code") or _infer_template_quote_code(item)
+    if not code:
+        return None
+    return (
+        f'=IF(OR(L{row}="t",L{row}="TA"),(M{row}+N{row})*2/1000*S{row}/1000,'
+        f'IF(OR(L{row}="F",L{row}="M"),(M{row}*N{row}),'
+        f'IF(L{row}="d",(M{row}+N{row}+U{row}/1/2)*2*S{row},'
+        f'IF(L{row}="tb",((M{row}+N{row})*2*S{row}+M{row}*N{row}),'
+        f'IF(OR(L{row}="g",L{row}="n"),((M{row}+O{row})*SQRT((S{row})^2+((N{row}-P{row})/2)^2)+(N{row}+P{row})*SQRT((S{row})^2+((M{row}-O{row})/2)^2)),'
+        f'IF(LEFT(L{row},1)="c",(2*(PI()*((M{row}+T{row})^2-T{row}^2)+N{row}*(PI()*(M{row}+T{row})+PI()*T{row}))*(U{row}/360)),'
+        f'IF(LEFT(L{row},2)="vt",((M{row}+O{row})*SQRT((S{row})^2+((N{row}-P{row})/2)^2)+(N{row}+P{row})*SQRT((S{row})^2+((M{row}-O{row})/2)^2)+((T{row}+200)^2-(T{row}/2)^2*3.14)),'
+        f'IF(L{row}="tt",(2*(M{row}+N{row})*(S{row}-1.5*O{row})+(PI()*(3*O{row}+2/3*M{row})*(O{row}+2/3*M{row}+P{row}+N{row})-(P{row}+N{row})*(PI()*1.5*O{row}))/8+(PI()*(3*Q{row}+2/3*M{row})*(Q{row}+2/3*M{row}+R{row}+N{row})-(R{row}+N{row})*(PI()*1.5*Q{row}))/8),0))))))))/10^6)'
+    )
 
 
 def _write_kaiyo_summary_rows(sheet, total_row: int, summary: Dict[str, float]) -> None:

@@ -1,10 +1,10 @@
 .env
-logs/
+# logs/
 __pycache__/
 **/__pycache__/
 .pytest_cache/
 .tmp_pytest*/
 backend/*.db
-*.log
+# *.log
 .DS_Store
 models/

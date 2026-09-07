@@ -1,0 +1,258 @@
+{
+  "timestamp": "2026-08-26T23:25:38",
+  "errors": [],
+  "parse_summary": {
+    "item_count": 28,
+    "category_counts": {
+      "SUPPLY_DUCT": 3,
+      "INSULATION": 1,
+      "FLEXIBLE_DUCT": 4,
+      "PLENUM_BOX": 1,
+      "SQUARE_DIFFUSER": 4,
+      "LOUVER": 6,
+      "ACCESSORY": 2,
+      "FILTER": 1,
+      "BACK_DRAFT_DAMPER": 3,
+      "VOLUME_CONTROL_DAMPER": 3
+    },
+    "unknown_category": 0
+  },
+  "pricing_summary": {
+    "total_area": 3245.21,
+    "total_material": 0.0,
+    "total_labor": 0.0,
+    "total_accessory": 0.0,
+    "total_installation": 0.0,
+    "total_painting": 0.0,
+    "total_insulation": 0.0,
+    "total_waste": 0.0,
+    "items_subtotal": 0.0,
+    "transportation": 0.0,
+    "machinery": 0.0,
+    "management_fee": 0.0,
+    "risk_fee": 0.0,
+    "subtotal": 0.0,
+    "profit": 0.0,
+    "vat": 0.0,
+    "grand_total": 0.0,
+    "quote_memory_matched": 0,
+    "quote_memory_full_match": false,
+    "quote_memory_partial_match": false
+  },
+  "warning_count": 28,
+  "warnings": [
+    "Item #1 (SD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #2 (SD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #3 (HVAC-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #4 (FLD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #5 (FLD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #6 (FLD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #7 (FLD-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #8 (PB-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #9 (SDD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #10 (SDD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #1 (SDD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #2 (LVR-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #3 (ACC-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #4 (ACC-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #5 (HVAC-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #6 (BDD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #7 (BDD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #8 (BDD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #9 (VCD-001): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #10 (SDD-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #11 (SD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #12 (LVR-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #13 (LVR-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #14 (LVR-004): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #15 (LVR-005): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #16 (LVR-006): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #17 (VCD-002): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng.",
+    "Item #18 (VCD-003): Dòng đọc từ phiếu YCBG không có tiêu đề chuẩn; parser dùng cột A=STT, B=tên vật tư, D=đơn vị, E=khối lượng."
+  ],
+  "output": "D:\\Duan_Kaiyo\\chatbot\\logs\\test-export-OG-MIENG-GIO-20260826-232538.xlsx",
+  "export_rows_23_35": [
+    {
+      "row": 23,
+      "vals": [
+        "1",
+        "Air duct 0.58mm tk\nỐng gió dày 0.58mm",
+        "Ton ma kem theo do day",
+        "Kaiyo Viet Nam",
+        "m2",
+        1560,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 24,
+      "vals": [
+        "2",
+        "Air duct 0.75mm tk\nỐng gió dày 0.75mm",
+        "Ton ma kem theo do day",
+        "Kaiyo Viet Nam",
+        "m2",
+        325,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 25,
+      "vals": [
+        "3",
+        "Ductwork insulation thick 25mm\nCách nhiệt ống gió dày 25mm",
+        "Ton ma kem day 25 mm",
+        "Kaiyo Viet Nam",
+        "m2",
+        388,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 26,
+      "vals": [
+        "4",
+        "Flexible air duct with insulation D200\nỐng gió mềm kèm cách nhiệt D200",
+        "Ton ma kem day 0.5 mm",
+        "Kaiyo Viet Nam",
+        "m",
+        240,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 27,
+      "vals": [
+        "5",
+        "Flexible air duct without insulation D100\nỐng gió mềm không cách nhiệt D100",
+        "Ton ma kem day 0.5 mm",
+        "Kaiyo Viet Nam",
+        "m",
+        8,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 28,
+      "vals": [
+        "6",
+        "Flexible air duct without insulation D150\nỐng gió mềm không cách nhiệt D150",
+        "Ton ma kem day 0.5 mm",
+        "Kaiyo Viet Nam",
+        "m",
+        532,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 29,
+      "vals": [
+        "7",
+        "Flexible air duct without insulation D200\nỐng gió mềm không cách nhiệt D200",
+        "Ton ma kem day 0.5 mm",
+        "Kaiyo Viet Nam",
+        "m",
+        108,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 30,
+      "vals": [
+        "8",
+        "Supply and Return Air Plenum Box for Indoor Unit\nBox gió cấp và hồi dàn lạnh",
+        "Ton ma kem theo do day",
+        "Kaiyo Viet Nam",
+        "set",
+        18,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 31,
+      "vals": [
+        "9",
+        "Supply air grill with box 1200x150\nMiệng gió cấp kèm box 1200x150",
+        "Nhom son tinh dien",
+        "Kaiyo Viet Nam",
+        "set",
+        15,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 32,
+      "vals": [
+        "10",
+        "Return air grill with box 1200x150\nMiệng gió hồi kèm box 1200x150",
+        "Nhom son tinh dien",
+        "Kaiyo Viet Nam",
+        "set",
+        15,
+        null,
+        null,
+        "HỆ THỐNG DHKK"
+      ]
+    },
+    {
+      "row": 33,
+      "vals": [
+        "1",
+        "EAG 300x300",
+        "Nhom son tinh dien",
+        "Kaiyo Viet Nam",
+        "set",
+        210,
+        null,
+        null,
+        "HỆ THỐNG THÔNG GIÓ"
+      ]
+    },
+    {
+      "row": 34,
+      "vals": [
+        "2",
+        "Ventcap D250",
+        "Nhom son tinh dien",
+        "Kaiyo Viet Nam",
+        "set",
+        129,
+        null,
+        null,
+        "HỆ THỐNG THÔNG GIÓ"
+      ]
+    },
+    {
+      "row": 35,
+      "vals": [
+        "3",
+        "Insect screen/ LCCT 200x250",
+        "Ton ma kem day 200 mm",
+        "Kaiyo Viet Nam",
+        "set",
+        25,
+        null,
+        null,
+        "HỆ THỐNG THÔNG GIÓ"
+      ]
+    }
+  ]
+}

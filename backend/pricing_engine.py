@@ -1,4 +1,4 @@
-﻿import math
+import math
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -48,6 +48,7 @@ DUCT_FITTING_CATEGORIES = STRAIGHT_DUCT_CATEGORIES | {
     "CROSS",
     "OFFSET",
     "PLENUM_BOX",
+    "END_CAP",
 }
 
 
@@ -79,7 +80,7 @@ def _kaiyo_quote_code(item: Dict[str, Any], quote_code: Any = "") -> str:
         return "vt"
     if category == "TEE":
         return "tt"
-    if category == "PLENUM_BOX":
+    if category in {"PLENUM_BOX", "END_CAP"}:
         return "tb"
     return ""
 
@@ -619,10 +620,12 @@ def _product_only_item(
         "vat": 0.0,
         "grand_total": 0.0,
         "quote_code": quote_code,
-        "quote_material_spec": product_rule.get("material_spec") or _default_material_spec(
-            item.get("material", "GI"),
-            float(item.get("thickness") or 0),
-            item.get("pressure_class"),
+        "quote_material_spec": item.get("quote_material_spec") or product_rule.get("material_spec") or (
+            "" if item.get("material_spec_source") == "needs_confirmation" else _default_material_spec(
+                item.get("material", "GI"),
+                float(item.get("thickness") or 0),
+                item.get("pressure_class"),
+            )
         ),
         "quote_brand": product_rule.get("brand", "Kaiyo Viet Nam"),
         "quote_note": item.get("remark") or "",
@@ -669,7 +672,18 @@ def calculate_item_cost(
         warnings = list(warnings)
 
     product_rules = product_rules or {}
-    product_rule = product_rules.get(item.get("category"), {})
+    category = item.get("category")
+    product_rule = product_rules.get(category, {})
+    if not product_rule and product_only_mode() and category == "END_CAP":
+        product_rule = {
+            "quote_code": "tb",
+            "unit_mode": "area",
+            "material_spec": "",
+            "brand": "Kaiyo Viet Nam",
+            "base_unit_price": 0.0,
+            "area_multiplier": 1.0,
+            "length_mm": 200.0,
+        }
     priced_item = _item_with_pricing_defaults(item, product_rule)
     required_fields = item.get("product_required_fields") or []
     if isinstance(required_fields, str):
