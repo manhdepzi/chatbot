@@ -8,3 +8,9 @@ backend/*.db
 # *.log
 .DS_Store
 models/
+docs/
+data/
+golden-data/
+.commandcode/
+.claude/
+.vscode/

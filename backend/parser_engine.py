@@ -644,7 +644,7 @@ def classify_product_category(description: str, name: str = "") -> str:
         ("VOLUME_CONTROL_DAMPER", ["prd", "van giam ap", "van xa ap", "pressure relief damper"]),
         ("VOLUME_CONTROL_DAMPER", ["vcd", "van chinh luu", "volume control", "obd"]),
         ("BACK_DRAFT_DAMPER", ["nrd", "back draft", "van gio 1 chieu", "van 1 chieu", "van mot chieu"]),
-        ("TRANSITION", ["vuong tron", "vuong/tron", "tron vuong", "con chuyen"]),
+        ("TRANSITION", ["vuong tron", "vuong/tron", "tron vuong", "con chuyen", "con dau quat", "dau quat"]),
         ("REDUCER", ["con thu", "con giam", "giam cap", "reducer"]),
         ("ELBOW", ["cut", "cut 45", "cut 90", "cút", "chech", "chech 45", "co 45", "co 90", "elbow"]),
         ("TRANSITION", ["got giay", "noi chan", "chan re"]),

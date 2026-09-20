@@ -5,7 +5,7 @@ os.environ["PRODUCT_ONLY_MODE"] = "0"
 
 from openpyxl import Workbook, load_workbook
 
-from backend.excel_engine import build_quotation_workbook
+from backend.excel_engine import build_quotation_workbook, _infer_template_quote_code
 
 
 def test_kaiyo_template_mapping_smoke():
@@ -173,3 +173,27 @@ def test_kaiyo_template_keeps_area_formula_for_end_cap(monkeypatch):
     assert quote["V24"].value.startswith("=IF(")
     assert 'L24="tb"' in quote["V24"].value
     assert "M24*N24" in quote["V24"].value
+
+
+def test_infer_template_quote_code_from_product_code():
+    assert _infer_template_quote_code({"product_code": "RECT_ELBOW"}) == "cv"
+    assert _infer_template_quote_code({"product_code": "MFD_L250"}) == "mfd"
+    assert _infer_template_quote_code({"product_code": "LOUVER_WITH_INSECT_SCREEN"}) == "c"
+
+
+def test_infer_template_quote_code_from_category():
+    assert _infer_template_quote_code({"category": "SUPPLY_DUCT"}) == "t"
+    assert _infer_template_quote_code({"category": "VOLUME_CONTROL_DAMPER"}) == "vcd"
+    assert _infer_template_quote_code({"category": "END_CAP"}) == "tb"
+
+
+def test_infer_template_quote_code_transition_and_special_shapes():
+    assert _infer_template_quote_code({"category": "TRANSITION"}) == "vt"
+    assert _infer_template_quote_code({"category": "TRANSITION", "description": "Nối chân 400x300"}) == "n"
+    assert _infer_template_quote_code({"category": "TRANSITION", "description": "Chân rẽ vuông"}) == "n"
+    assert _infer_template_quote_code({"category": "ELBOW", "description": "Zét 90 độ"}) == "d"
+
+
+def test_infer_template_quote_code_unknown_is_empty():
+    assert _infer_template_quote_code({"category": "UNKNOWN"}) == ""
+    assert _infer_template_quote_code({"category": "INSULATION"}) == ""

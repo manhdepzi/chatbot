@@ -4,7 +4,12 @@ os.environ["USE_SUPABASE_DB"] = "0"
 
 from openpyxl import Workbook
 
-from backend.parser_engine import parse_customer_sheet, parse_reference_quote, resolve_material_specifications
+from backend.parser_engine import (
+    parse_customer_sheet,
+    parse_reference_quote,
+    resolve_material_specifications,
+    classify_product_category,
+)
 
 
 def test_reference_quote_prefers_sales_quote_sheet_over_kl_sheet(tmp_path):
@@ -235,3 +240,9 @@ def test_material_spec_warns_when_approved_memory_is_ambiguous():
     assert result["quote_material_spec"] == ""
     assert result["material_spec_source"] == "needs_confirmation"
     assert result["warnings"]
+
+
+def test_classify_fan_cone_as_transition():
+    assert classify_product_category("Côn đầu quạt KT 1400x500/D,L=500mm, EI45") == "TRANSITION"
+    assert classify_product_category("Côn đầu quạt KT 600x300/D,L=500mm, EI30") == "TRANSITION"
+    assert classify_product_category("Côn vuông tròn 1000x500/quạt tôn 0.75mm") == "TRANSITION"

@@ -683,24 +683,58 @@ def _area_per_item(item: Dict[str, Any], qty: float) -> Any:
     return round(float(area) / qty, 4) if qty else area
 
 
+_PRODUCT_CODE_TO_QUOTE_CODE: Dict[str, str] = {
+    "RECT_DUCT": "t",
+    "RECT_ELBOW": "cv",
+    "REDUCER": "g",
+    "TEE_BRANCH": "tt",
+    "LOUVER": "c",
+    "LOUVER_WITH_INSECT_SCREEN": "c",
+    "GRILLE_WITH_OBD": "c",
+    "OBD_DAMPER": "vcd",
+    "MANUAL_VOLUME_DAMPER": "vcd",
+    "MFD_L250": "mfd",
+    "FD_L250": "fd",
+}
+
+_CATEGORY_TO_QUOTE_CODE: Dict[str, str] = {
+    "SUPPLY_DUCT": "t",
+    "RETURN_DUCT": "t",
+    "FRESH_AIR_DUCT": "t",
+    "EXHAUST_AIR_DUCT": "t",
+    "SMOKE_DUCT": "t",
+    "END_CAP": "tb",
+    "REDUCER": "g",
+    "TRANSITION": "vt",
+    "ELBOW": "cv",
+    "TEE": "tt",
+    "CROSS": "cr",
+    "PLENUM_BOX": "tb",
+    "LOUVER": "c",
+    "SQUARE_DIFFUSER": "c",
+    "LINEAR_DIFFUSER": "ld",
+    "FIRE_DAMPER": "fd",
+    "MOTORIZED_DAMPER": "mfd",
+    "VOLUME_CONTROL_DAMPER": "vcd",
+    "BACK_DRAFT_DAMPER": "nrd",
+    "FLEXIBLE_CONNECTOR": "cb",
+}
+
+
 def _infer_template_quote_code(item: Dict[str, Any]) -> str:
-    category = item.get("category")
+    product_code = str(item.get("product_code") or "").strip()
+    if product_code in _PRODUCT_CODE_TO_QUOTE_CODE:
+        return _PRODUCT_CODE_TO_QUOTE_CODE[product_code]
+
     description = _normalize(item.get("description", ""))
-    if category in ["SUPPLY_DUCT", "RETURN_DUCT", "FRESH_AIR_DUCT", "EXHAUST_AIR_DUCT", "SMOKE_DUCT"]:
-        return "t"
-    if category == "END_CAP":
-        return "tb"
-    if category == "REDUCER":
-        return "g"
-    if category == "TRANSITION":
-        return "vt" if "ø" in description or "phi" in description else "g"
-    if category == "ELBOW":
-        return "cv"
-    if category == "TEE":
-        return "tt"
     if "zet" in description or "down" in description:
         return "d"
-    return ""
+
+    category = item.get("category")
+    if category == "TRANSITION" and any(token in description for token in ("chan re", "noi chan", "got giay")):
+        return "n"
+
+    return _CATEGORY_TO_QUOTE_CODE.get(category, "")
 
 
 def _replace_sheet(workbook: Workbook, title: str):
