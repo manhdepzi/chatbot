@@ -1,8 +1,8 @@
 # Hệ thống RAG sinh báo giá Kaiyo Việt Nam
 
 Tự động tạo **báo giá xây lắp** (file Excel) từ các BOQ đầu vào trong `data/`,
-sử dụng RAG (học từ `golden-data/`) + LLM (OpenAI) để phân loại sản phẩm và
-định giá, theo mẫu chuẩn trong `report-template/`.
+sử dụng RAG (học từ `golden-data/`, lưu vào **vector database ChromaDB**) + LLM
+(OpenAI) để phân loại sản phẩm và định giá, theo mẫu chuẩn trong `report-template/`.
 
 ## Cài đặt
 
@@ -42,7 +42,7 @@ sẽ có một báo cáo tương ứng.
 ```
 data/<file>.xlsx
    → input_parser   : chuẩn hóa thành danh sách sản phẩm + header báo giá
-   → retriever      : tìm sản phẩm tương tự trong golden-data (embedding cosine)
+   → retriever      : tìm sản phẩm tương tự trong vector DB ChromaDB (embedding cosine)
    → LLM            : phân loại mã SP + ước tính đơn giá / hệ số / giá tôn
    → calculator     : diện tích, thành tiền, tổng trước/sau thuế (số học chính xác)
    → report_builder : điền template → reports/<file>.xlsx
@@ -59,7 +59,7 @@ data/              # BOQ đầu vào (watch)
 report-template/   # mẫu báo giá chuẩn
 golden-data/       # báo giá vàng — tri thức RAG
 reports/           # output
-rag_index/         # cache index (index.json) + state (state.json)
+rag_index/         # vector DB ChromaDB + state (state.json)
 logs/              # log chạy
 src/               # code
   loaders/         # đọc + parse Excel
