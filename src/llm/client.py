@@ -4,11 +4,13 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
 from .. import config
 
 _client: OpenAI | None = None
+# models that rejected a custom temperature (remembered for the process)
+_NO_TEMPERATURE: set[str] = set()
 
 
 def _get_client() -> OpenAI:
@@ -42,16 +44,27 @@ def chat_json(messages: list[dict], model: str | None = None,
     """Send a chat request and parse a JSON-object response."""
     client = _get_client()
     model = model or config.OPENAI_MODEL
+    kwargs: dict[str, Any] = {}
+    if model not in _NO_TEMPERATURE:
+        kwargs["temperature"] = temperature
 
     def call():
         return client.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=temperature,
             response_format={"type": "json_object"},
+            **kwargs,
         )
 
-    resp = _with_retries(call)
+    try:
+        resp = _with_retries(call)
+    except BadRequestError as e:
+        # some models (e.g. reasoning models) only accept the default temperature
+        if "temperature" not in str(e) or "temperature" not in kwargs:
+            raise
+        _NO_TEMPERATURE.add(model)
+        kwargs.pop("temperature")
+        resp = _with_retries(call)
     raw = resp.choices[0].message.content
     import json
     return json.loads(raw)

@@ -32,11 +32,18 @@ _COL_ORIGIN = ("xuất xứ", "nhãn hiệu")
 _DIM_COLS = {
     "w1": "w1", "h1": "h1", "w2": "w2", "h2": "h2",
     "w3": "w3", "h3": "h3", "l/h": "l", "r/d": "r", "e": "e",
-    "diện tích /cái ": "area",
+    "diện tích /cái": "area",
 }
 
 # rows that terminate an item block
 _STOP_ROWS = ("tổng cộng", "tổng thanh toán", "viết bằng chữ", "ghi chú")
+
+# unit values recognised in headerless "Yêu cầu báo giá" tables
+_UNIT_VALUES = {
+    "m2", "m3", "m", "md", "lm", "set", "cái", "bộ", "kg", "tấn", "chiếc",
+    "hộp", "tấm", "miếng", "cụm", "hệ", "lô", "quả", "cặp", "đôi", "sợi",
+    "cuộn", "thanh", "vỉ", "cây", "con", "ổ",
+}
 
 _HEADER_LABELS = {
     "kính gửi": "kinh_gui",
@@ -243,8 +250,88 @@ def _qty_count(items: list[dict]) -> int:
                if not it.get("is_section") and it.get("khoi_luong") is not None)
 
 
+def _is_quantity(v: Any) -> bool:
+    """True when a cell parses as a number (used for headerless qty columns)."""
+    return isinstance(_as_num(v), (int, float)) and not isinstance(v, bool)
+
+
+def _extract_headerless(grid: list[list[Any]]) -> list[dict]:
+    """Extract items from a sheet without a header row.
+
+    Covers the "Yêu cầu báo giá" layout: section-title rows interleaved with
+    data rows of ``[STT, name, unit, quantity, ...]``. Columns are inferred
+    per row rather than from a header.
+    """
+    items: list[dict] = []
+    for row in grid:
+        vals = [_cell(c) for c in row]
+        if not any(vals):
+            continue
+
+        # STT = the first integer cell in the row
+        stt = None
+        stt_idx = None
+        for j, v in enumerate(vals):
+            if v and _is_int(v):
+                stt = int(float(v))
+                stt_idx = j
+                break
+
+        # no numeric STT -> a section/title row
+        if stt is None:
+            first = next((v for v in vals if v), "")
+            items.append({"is_section": True, "ten": first})
+            continue
+
+        name = ""
+        unit = ""
+        qty = None
+        for j, v in enumerate(vals):
+            if j == stt_idx or not v:
+                continue
+            low = v.lower().strip()
+            if low in _UNIT_VALUES:
+                if not unit:
+                    unit = v
+                continue
+            if _is_quantity(v):
+                if qty is None:
+                    qty = _as_num(v)
+                continue
+            if not name:
+                name = v
+
+        if not name:
+            continue
+        items.append({
+            "is_section": False,
+            "stt": stt,
+            "ten": name,
+            "don_vi": unit,
+            "khoi_luong": qty,
+            "ma_sp": "",
+            "vat_lieu": "",
+            "xuat_xu": "",
+            "ghi_chu": "",
+        })
+    return items
+
+
+def parse_header(sheets: list[dict]) -> dict[str, Any]:
+    """Quote header fields found by label in any sheet."""
+    header: dict[str, Any] = {}
+    for sh in sheets:
+        h = _parse_header(sh["grid"])
+        header.update({k: v for k, v in h.items() if v})
+    return header
+
+
 def parse_input(path: str | Path) -> dict[str, Any]:
-    """Return ``{file, header, items, source_sheet}`` for one input BOQ."""
+    """Heuristic parser (header-based, then headerless).
+
+    Fallback for when the LLM step fails; returns
+    ``{file, header, items, source_sheet}``.
+    """
     sheets = read_excel(path)
 
     header: dict[str, Any] = {}
@@ -256,8 +343,9 @@ def parse_input(path: str | Path) -> dict[str, Any]:
         header.update({k: v for k, v in h.items() if v})
         hdr = _find_header_row(grid)
         if hdr is None:
-            continue
-        items = _extract_items(grid, hdr)
+            items = _extract_headerless(grid)
+        else:
+            items = _extract_items(grid, hdr)
         if items:
             sheet_items.append((sh["name"], items))
 

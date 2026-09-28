@@ -22,7 +22,8 @@ from typing import Any
 import chromadb
 
 from .. import config
-from .golden_parser import parse_golden_dir
+from .formulas import build_formula_docs
+from .golden_parser import parse_golden_dir, parse_legend_docs
 from ..llm import client as llm
 
 _BATCH = 64
@@ -59,6 +60,11 @@ def _reset_collection(client: chromadb.ClientAPI):
 def build(golden_dir: str | Path | None = None) -> dict[str, Any]:
     """(Re)build the Chroma collection from golden-data and return {count}."""
     docs = parse_golden_dir(golden_dir or config.GOLDEN_DIR)
+    # the template's Mã SP legend is knowledge too, not output content
+    if config.TEMPLATE_FILE.exists():
+        docs += parse_legend_docs(config.TEMPLATE_FILE)
+    # the golden price formulas, grouped into retrievable pricing methods
+    docs += build_formula_docs(docs)
     if not docs:
         raise RuntimeError("no golden documents found")
 
@@ -138,24 +144,33 @@ def ensure(golden_dir: str | Path | None = None, force: bool = False) -> dict[st
         idx = load()
         if idx and idx.get("docs"):
             return idx
-    return build(golden_dir)
+    build(golden_dir)
+    return load()
 
 
 def search(index: dict[str, Any], query_vec: list[float], top_k: int,
-           priced_only: bool = False) -> list[dict]:
+           priced_only: bool = False, contains: str | None = None,
+           where: dict[str, Any] | None = None) -> list[dict]:
     """Return top-k documents with similarity scores.
 
     ``priced_only`` restricts results to documents carrying a unit price /
-    price factor, which is what the pricing step needs.
+    price factor, which is what the pricing step needs. ``contains`` keeps
+    only documents whose text includes that string (e.g. a product code).
     """
     col = index["collection"]
     docs_by_id = index.get("docs", {})
 
     # query more than needed when filtering, so the final list still has top_k
     n_fetch = top_k * 4 if priced_only else top_k
+    kwargs: dict[str, Any] = {}
+    if contains:
+        kwargs["where_document"] = {"$contains": contains}
+    if where:
+        kwargs["where"] = where
     res = col.query(
         query_embeddings=[query_vec],
         n_results=min(n_fetch, max(col.count(), 1)),
+        **kwargs,
     )
 
     out: list[dict] = []

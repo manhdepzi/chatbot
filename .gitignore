@@ -30,3 +30,8 @@ golden-data/
 # Keep the quotation template (needed to run)
 !report-template/
 !report-template/*.xlsx
+
+# Local extras
+data copy/
+*.zip
+.commandcode/

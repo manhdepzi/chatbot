@@ -39,7 +39,13 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 # --- RAG -----------------------------------------------------------------
-RAG_TOP_K = 3
+RAG_TOP_K = 5
+FORMULA_TOP_K = 3   # formula documents searched per item (besides linked ones)
+
+# --- LLM report extraction -------------------------------------------------
+CHUNK_ROWS = int(os.getenv("CHUNK_ROWS", "120"))   # input rows per READ call
+RESULT_BATCH = int(os.getenv("RESULT_BATCH", "5"))  # products per RESULT call (small: better choices)
+LLM_WORKERS = int(os.getenv("LLM_WORKERS", "4"))   # parallel calls for big files
 
 # --- Supported extensions -------------------------------------------------
 INPUT_EXTS = {".xls", ".xlsx"}

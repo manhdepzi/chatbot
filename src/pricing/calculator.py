@@ -169,11 +169,7 @@ def compute_area(item: dict[str, Any]) -> float | None:
                 + (math.pi * (3 * w3 + 2 / 3 * w1) * (w3 + 2 / 3 * w1 + h3 + h1)
                    - (h3 + h1) * (math.pi * 1.5 * w3)) / 8) / 1e6
 
-    # flat plate / grille / damper that only carries a WxH (no length/radius):
-    # same as the golden F/M branch -> W*H/1e6
-    if w1 is not None and h1 is not None and l is None and r is None:
-        return w1 * h1 / 1e6
-
+    # any other code: the template formula gives no area
     return None
 
 

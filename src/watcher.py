@@ -1,4 +1,4 @@
-"""Watch the data/ directory and process new files as they appear."""
+"""Watch the data/ directory and generate a report for every new/changed file."""
 from __future__ import annotations
 
 import logging
@@ -14,12 +14,13 @@ from .rag import index as rag_index
 
 log = logging.getLogger("watcher")
 
-DEBOUNCE_SECONDS = 1.5
+# a file is processed once it has not changed for this long (copy finished)
+DEBOUNCE_SECONDS = 2.0
 
 
 class _Handler(FileSystemEventHandler):
     def __init__(self):
-        self._pending: dict[str, float] = {}
+        self._pending: dict[str, tuple[float, int]] = {}
         self._index = None
 
     def _index_loaded(self):
@@ -33,9 +34,13 @@ class _Handler(FileSystemEventHandler):
             return
         if p.name.startswith(config.IGNORE_PREFIXES):
             return
-        self._pending[path] = time.time()
+        self._pending[path] = (time.time(), _size(p))
 
     def on_created(self, event):
+        if not event.is_directory:
+            self._schedule(event.src_path)
+
+    def on_modified(self, event):
         if not event.is_directory:
             self._schedule(event.src_path)
 
@@ -45,15 +50,32 @@ class _Handler(FileSystemEventHandler):
 
     def tick(self):
         now = time.time()
-        ready = [p for p, t in self._pending.items() if now - t >= DEBOUNCE_SECONDS]
-        for p in ready:
-            self._pending.pop(p, None)
+        for path, (t, size) in list(self._pending.items()):
+            if now - t < DEBOUNCE_SECONDS:
+                continue
+            p = Path(path)
+            if not p.exists():
+                self._pending.pop(path, None)
+                continue
+            # still being written: wait another round
+            cur = _size(p)
+            if cur != size:
+                self._pending[path] = (now, cur)
+                continue
+            self._pending.pop(path, None)
             try:
                 out = pipeline.process_file(p, index=self._index_loaded())
                 if out:
                     log.info("watcher generated %s", out)
             except Exception as e:  # noqa: BLE001
                 log.exception("watcher failed on %s: %s", p, e)
+
+
+def _size(p: Path) -> int:
+    try:
+        return p.stat().st_size
+    except OSError:
+        return -1
 
 
 def run_watcher():
@@ -63,6 +85,11 @@ def run_watcher():
     observer.schedule(handler, str(config.DATA_DIR), recursive=False)
     observer.start()
     log.info("watching %s for new files...", config.DATA_DIR)
+
+    # files dropped while the watcher was stopped (no report or report older)
+    for p in pipeline.input_files():
+        handler._schedule(str(p))
+
     try:
         while True:
             time.sleep(0.5)
