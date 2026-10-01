@@ -533,6 +533,47 @@ def _normalize_ma_sp(item: dict, codes: dict[str, str]) -> None:
         item.pop("ma_sp", None)
 
 
+_VAN_L = 200.0        # van body length when the name gives none (VCD, MD, NRD, PRD)
+_FIRE_VAN_L = 250.0   # ... for a fire damper (MFD, FD), as golden builds them
+_CON_L = 500.0        # reducer length when the name gives none
+_VAN_LEAD = re.compile(r"^(?:(?:cung cấp|lắp đặt|và|,)\s*)*(?:van|valve)\b"
+                       r"|^(?:[\w-]+\s+){0,3}damper\b")
+_FIRE_VAN = re.compile(r"\bm?fs?d\b|ngăn cháy|chặn lửa|fire damper", re.I)
+_NOT_FIRE_VAN = re.compile(r"\bnrd\b|\bprd\b|một chiều|1 chiều|non.?return|check valve"
+                           r"|xả áp|giảm áp|relief", re.I)
+
+
+def _is_van(item: dict) -> bool:
+    """A damper/valve (the product itself, not a grille "kèm van OBD")."""
+    if str(item.get("loai") or "").strip().lower().startswith("van"):
+        return True
+    name = _split_vn_name(str(item.get("ten") or "")).strip().lower()
+    return bool(_VAN_LEAD.match(name))
+
+
+def _area_conventions(item: dict, codes: set[str]) -> None:
+    """Area-table sizes that names leave out.
+
+    A rectangular van is measured as an end cap (tb): side walls + section,
+    2x(W+H)xL + WxH, L being its body length — golden van sheets keep that
+    length in W2 and helper sums in H2..H3 — when unknown 250 for a fire
+    damper (MFD/FD), 200 for the others. A reducer (g) without a length is L500.
+    """
+    names = " ".join(str(item.get(k) or "") for k in ("ten", "ten_goc"))
+    rectangular = re.search(r"\d\s*[xX×*]\s*\d", names) is not None  # not D150
+    if _is_van(item) and rectangular and "tb" in codes \
+            and None not in (_num(item.get("w1")), _num(item.get("h1"))):
+        fire = _FIRE_VAN.search(names) and not _NOT_FIRE_VAN.search(names)
+        body = _num(item.get("l")) or _num(item.get("w2")) \
+            or (_FIRE_VAN_L if fire else _VAN_L)
+        for k in ("w2", "h2", "w3", "h3"):
+            item.pop(k, None)
+        item["ma_sp"] = "tb"
+        item["l"] = body
+    elif str(item.get("ma_sp") or "").lower() == "g" and _num(item.get("l")) is None:
+        item["l"] = _CON_L
+
+
 def masp_legend(items: list[dict], catalog: list[tuple[str, str]]) -> list[tuple[str, str]]:
     """Legend rows for the report: the learned (type, code) pairs whose code
     is used in this report's area table, in the golden legend order."""
@@ -574,6 +615,7 @@ def _recipe_value(item: dict, doc: dict) -> tuple[float, dict[str, Any]] | None:
         return None
 
     updates: dict[str, Any] = {}
+    van = _is_van(item)
     if "area" in names:
         work = {k: v for k, v in item.items() if k != "area"}
         if _blank(work.get("ma_sp")) and meta.get("ma_sp"):
@@ -582,6 +624,9 @@ def _recipe_value(item: dict, doc: dict) -> tuple[float, dict[str, Any]] | None:
         # a golden row's own sizes, or the sizes fixed across a formula's rows
         defaults = (meta.get("mac_dinh") or {}) if fdocs.is_formula(doc) else \
             {k: meta[k] for k in fdocs.DEFAULTABLE if _num(meta.get(k)) is not None}
+        if van:
+            # golden van sheets hold helper sums there, not sizes
+            defaults = {k: v for k, v in defaults.items() if k not in ("w2", "h2", "w3", "h3")}
         for k, v in defaults.items():
             if _blank(work.get(k)):
                 updates[k] = work[k] = v
@@ -601,6 +646,9 @@ def _recipe_value(item: dict, doc: dict) -> tuple[float, dict[str, Any]] | None:
             v = item.get("ma_sp")
         else:
             v = _num(item.get(name))
+            if v is None and name == "w2" and van:
+                # golden van sheets keep the body length in W2
+                v = _num(item.get("l"))
             if v is None:
                 return None
         env[name] = v
@@ -669,6 +717,7 @@ def _finalize(item: dict, catalog: list[tuple[str, str]], masp) -> dict:
     else:
         item.pop("ma_sp", None)
     _normalize_ma_sp(item, {code: code for _, code in catalog})
+    _area_conventions(item, {code for _, code in catalog})
     # the template's DIỆN TÍCH /CÁI formula, nothing else
     area = calc.compute_area(item)
     if area is not None:

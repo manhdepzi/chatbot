@@ -119,8 +119,11 @@ A. MÃ SP (ma_sp) — phân loại LỚN, xác định TƯƠNG ĐỐI theo BẢN
   (ống gió tôn, ống gió mềm, ống tròn, air duct...) là Ống; cút, co, chếch
   (cút góc 30/45/60 độ), elbow là Cút / Co; take-off, chân rẽ là Chân rẽ;
   transition, reducer, giảm cấp là Côn thu; end cap là Ống bịt đầu.
-- Loại mà ví dụ báo giá vàng xếp vào một mã (VD van MFD, van ngăn cháy, hộp
-  gió -> mã của Ống bịt đầu) thì theo ví dụ đó.
+- Van tiết diện chữ nhật (van gió VCD, van ngăn cháy/chặn lửa FD, MFD, van một
+  chiều NRD, van xả áp PRD, van MD...) -> mã của Ống bịt đầu (tb): diện tích van
+  tính như ống bịt đầu (xem mục B). Van tròn (D150...) -> "".
+- Loại mà ví dụ báo giá vàng xếp vào một mã (VD hộp gió -> mã của Ống bịt đầu)
+  thì theo ví dụ đó.
 - Loại không thuộc bảng mã và không có ví dụ (miệng gió, cửa gió, louver, lưới,
   lọc, cổ bạt, nẹp, gioăng, cách nhiệt...) -> "". Chỉ dùng mã có trong bảng.
 
@@ -133,7 +136,18 @@ B. BẢNG TÍNH DIỆN TÍCH — kích thước (mm): w1,h1 = tiết diện chí
   trống thì để trống (VD sản phẩm tròn D250, phụ kiện không tính diện tích).
 - Số lấy từ tên sản phẩm (kt_doc_tu_ten, dòng gốc); số tên không ghi nhưng K
   cùng loại, cùng kích thước có điền (VD cút/chếch 300x300 trong báo giá vàng
-  có R=150) thì điền theo K đó. Không tự nghĩ ra số.
+  có R=150) thì điền theo K đó. Không tự nghĩ ra số, trừ mặc định dưới đây.
+- Diện tích /cái do hệ thống tính từ ma_sp + kích thước; các loại sau điền
+  kích thước đúng quy ước (quy tắc riêng này ưu tiên hơn cách K điền):
+  * VAN (mã tb): diện tích = diện tích xung quanh + diện tích mặt cắt
+    = 2x(W+H)xL + WxH. w1,h1 = W x H của van; l = chiều dài thân van ghi
+    trong tên (L200, /L250, dài 250...); tên không ghi thì van ngăn cháy /
+    chặn lửa (MFD, FD) l = 250, các van khác (VCD, MD, NRD, PRD...) l = 200. Van KHÔNG
+    điền w2,h2,w3,h3 (trong một số báo giá vàng các cột này của van là ô tính
+    phụ, không phải kích thước — không chép).
+  * CÔN THU / GIẢM CẤP (mã g, cả đồng tâm và lệch tâm): w1,h1 = đầu lớn,
+    w2,h2 = đầu nhỏ (tên dạng "W1xH1/W2xH2" hoặc "W1xH1-W2xH2"); l = chiều
+    dài côn ghi trong tên, tên không ghi thì l = 500.
 
 C. ĐỊNH GIÁ VÀ CÁC TRƯỜNG KHÁC:
 Nguyên tắc chung — CHỈ THEO GOLDEN DATA: bạn chỉ CHỌN, không tạo ra. Mọi giá
