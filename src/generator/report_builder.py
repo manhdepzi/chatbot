@@ -8,6 +8,8 @@ row so the same code works across Kaiyo template variants.
 from __future__ import annotations
 
 import copy
+import logging
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,8 @@ import openpyxl
 
 from .. import config
 from ..pricing import formula as fx
+
+log = logging.getLogger("report")
 
 # header labels (lowercased) -> canonical field. Dimension tokens are matched
 # exactly (or as a prefix) to avoid single-char false matches.
@@ -250,6 +254,18 @@ class _Cells:
 _NO_RESULT = object()
 
 
+def _check_images(wb) -> None:
+    """openpyxl silently drops the template's pictures (the letterhead logo)
+    when Pillow is not installed: say so instead of losing them quietly."""
+    with zipfile.ZipFile(config.TEMPLATE_FILE) as z:
+        in_file = sum(1 for n in z.namelist() if n.startswith("xl/media/"))
+    loaded = sum(len(ws._images) for ws in wb.worksheets)
+    if in_file and not loaded:
+        log.warning("template images were not loaded (is Pillow installed? "
+                    "pip install -r requirements.txt): the report will lack "
+                    "the letterhead logo")
+
+
 def build_report(items: list[dict[str, Any]], header: dict[str, Any],
                  out_path: str | Path, totals: dict[str, float],
                  legend: list[tuple[str, str]] | None = None,
@@ -260,6 +276,7 @@ def build_report(items: list[dict[str, Any]], header: dict[str, Any],
 
     wb = openpyxl.load_workbook(config.TEMPLATE_FILE)
     ws = _find_sheet(wb)
+    _check_images(wb)
 
     header_row = _find_header_row(ws)
     if header_row is None:
