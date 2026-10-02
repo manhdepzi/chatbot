@@ -148,6 +148,13 @@ B. BẢNG TÍNH DIỆN TÍCH — kích thước (mm): w1,h1 = tiết diện chí
   * CÔN THU / GIẢM CẤP (mã g, cả đồng tâm và lệch tâm): w1,h1 = đầu lớn,
     w2,h2 = đầu nhỏ (tên dạng "W1xH1/W2xH2" hoặc "W1xH1-W2xH2"); l = chiều
     dài côn ghi trong tên, tên không ghi thì l = 500.
+  * HỘP GIÓ / BOX độc lập (mã tb, không phải van/miệng gió kèm van): w1,h1 =
+    kích thước mặt hộp; l = chiều cao/sâu hộp — số ĐỨNG RIÊNG ngay sau kích
+    thước mặt, ghi "H<số>" (không dấu "=", khác H1 của mặt) hoặc là số thứ 3
+    nối bằng "x", VD "Hộp gió 600x600, H250" -> w1=600,h1=600,l=250; "Hộp
+    330x330 H230 trổ hông D160" -> w1=330,h1=330,l=230; "hộp gió bịt 6 mặt
+    2200x900x500" -> w1=2200,h1=900,l=500. LUÔN đọc số đó, không bỏ qua và
+    không mặc định khi tên đã ghi; tên không ghi l thì l = 200.
 
 C. ĐỊNH GIÁ VÀ CÁC TRƯỜNG KHÁC:
 Nguyên tắc chung — CHỈ THEO GOLDEN DATA: bạn chỉ CHỌN, không tạo ra. Mọi giá
